@@ -116,31 +116,361 @@ HTTP 配置还支持 Cookie 管理、认证、请求拦截器等高级功能，�
 
 ## 3. `[scripting]` - 脚本配置
 
-用于注册自定义脚本函数。
+用于扩展规范的声明式能力，处理复杂的数据处理逻辑。
+
+### 设计理念
+
+- **内联优先**: 脚本代码直接嵌入规则文件，便于分发和管理
+- **远程加载**: 支持从 URL 加载脚本，实现动态更新和代码复用
+- **模块化**: 通过命名模块组织脚本，避免命名冲突
+- **跨平台**: 使用 Rust 实现的脚本引擎，确保在所有平台运行
+
+### 基础配置
 
 | 字段 | 类型 | 默认值 | 描述 |
 |------|------|--------|------|
-| `engine` | String | `"rhai"` | 脚本引擎（`rhai`, `javascript`, `python`, `lua`） |
-| `source_dir` | String | `"scripts"` | 脚本文件目录（相对路径） |
+| `engine` | String | `"rhai"` | 默认脚本引擎（`rhai`, `javascript`, `python`, `lua`） |
+| `modules` | Table | `{}` | 脚本模块定义 |
 
-> **全平台兼容**：所有脚本引擎都使用 Rust 实现，确保在 iOS、Android、Desktop、Web 平台均可运行。
-> **注意**： 由于现在rust生态的运行时不够完善可能很多功能不支持，建议优先使用 `rhai` 引擎。
+> **引擎选择建议**：
+> - `rhai`: 推荐，轻量级、类 Rust 语法、性能好
+> - `javascript`: 熟悉的语法，较大的运行时
+> - `python`: 功能强大，运行时最大
+> - `lua`: 轻量级、高性能，适合移动端
 
-### 简单示例
+> **多引擎支持**：每个模块可以指定不同的引擎，允许在同一规则文件中混合使用多种语言。
+
+### 使用方式
+
+#### 方式 1: 内联脚本（推荐）
+
+```toml
+[scripting]
+engine = "rhai"
+
+[scripting.modules.crypto]
+code = '''
+// AES 解密函数
+fn decrypt(encrypted, key) {
+    let cipher = aes::new(key);
+    cipher.decrypt(encrypted)
+}
+
+// Base64 解码
+fn decode_base64(input) {
+    base64::decode(input)
+}
+'''
+
+[scripting.modules.utils]
+code = '''
+fn clean_title(title) {
+    title.trim()
+         .replace("【", "[")
+         .replace("】", "]")
+}
+'''
+```
+
+在管道中调用：
+```toml
+[parse.detail.fields]
+play_url = [
+    { type = "selector", query = "#player-data", extract = "text" },
+    { type = "script", call = "crypto.decrypt", args = { key = "secret123" } }
+]
+
+title = [
+    { type = "selector", query = "h1", extract = "text" },
+    { type = "script", call = "utils.clean_title" }
+]
+```
+
+#### 方式 2: 远程脚本
+
+```toml
+[scripting]
+engine = "rhai"
+
+[scripting.modules.crypto]
+url = "https://example.com/scripts/crypto.rhai"
+# 可选：指定缓存时间（秒）
+cache_ttl = 86400
+
+[scripting.modules.parser]
+url = "https://cdn.example.com/v1/parser.rhai"
+```
+
+#### 方式 3: 混合使用
+
+```toml
+[scripting]
+engine = "rhai"
+
+# 核心加密逻辑从远程加载
+[scripting.modules.crypto]
+url = "https://example.com/scripts/crypto.rhai"
+cache_ttl = 86400
+
+# 简单工具函数内联
+[scripting.modules.utils]
+code = '''
+fn format_url(path) {
+    "https://" + domain + path
+}
+'''
+```
+
+#### 方式 4: 多引擎混合（高级）
+
+每个模块可以指定不同的引擎，发挥各种语言的优势：
 
 ```toml
 [scripting]
 engine = "rhai"  # 默认引擎
-source_dir = "./scripts"
 
-[scripting.files]
-crypto = "aes_decrypt.rhai"
-utils = "string_utils.rhai"
+# Rhai 处理加密（性能最优）
+[scripting.modules.crypto]
+engine = "rhai"
+code = '''
+fn decrypt_aes(data, key) {
+    let decrypted = aes::decrypt(base64::decode(data), key, "0000000000000000");
+    String::from_utf8(decrypted)
+}
+'''
+
+# JavaScript 处理 JSON（原生支持好）
+[scripting.modules.parser]
+engine = "javascript"
+code = '''
+function parseEpisodes(jsonStr) {
+    const data = JSON.parse(jsonStr);
+    return data.episodes.map(ep => ({
+        number: ep.num,
+        title: ep.title,
+        url: ep.play_url
+    }));
+}
+'''
+
+# Python 处理数据清洗（字符串处理强）
+[scripting.modules.cleaner]
+engine = "python"
+code = '''
+import re
+
+def clean_text(text):
+    text = re.sub(r'<[^>]+>', '', text)
+    text = re.sub(r'\s+', ' ', text)
+    return text.strip()
+'''
+
+# Lua 处理简单逻辑（轻量级）
+[scripting.modules.utils]
+engine = "lua"
+code = '''
+function format_url(path)
+    return "https://" .. domain .. path
+end
+'''
 ```
 
-**调用方式**: 在管道中使用 `{ type = "script", call = "crypto.decrypt" }`
+调用方式：
+```toml
+[parse.detail.fields]
+play_url = [
+    { type = "selector", query = "#data", extract = "text" },
+    { type = "script", call = "crypto.decrypt_aes", args = { key = "key123" } }
+]
 
-详细的脚本引擎对比、函数编写指南和最佳实践，请参考 [脚本配置](./advanced/scripting-config.md)。
+episodes = [
+    { type = "http_request", url_template = "https://api.example.com/episodes" },
+    { type = "script", call = "parser.parseEpisodes" }
+]
+
+description = [
+    { type = "selector", query = ".desc", extract = "html" },
+    { type = "script", call = "cleaner.clean_text" }
+]
+```
+
+### 脚本函数规范
+
+#### 函数签名
+
+```rust
+// 接收一个参数（管道输入）
+fn process(input) { 
+    // 处理逻辑
+    return result
+}
+
+// 接收多个参数（input + args）
+fn process(input, arg1, arg2) {
+    // 处理逻辑
+    return result
+}
+```
+
+#### 输入/输出类型
+
+脚本函数的输入是前一步的输出，可以是：
+- 字符串
+- 数字
+- 布尔值
+- 数组
+- 对象（Map）
+
+返回值将作为下一步的输入。
+
+#### 错误处理
+
+```rhai
+fn safe_parse(input) {
+    // 使用 try-catch 处理错误
+    try {
+        parse_json(input)
+    } catch (e) {
+        // 返回默认值或抛出错误
+        throw "解析失败: " + e
+    }
+}
+```
+
+### 调用方式
+
+在管道中使用 `script` 步骤：
+
+```toml
+# 无额外参数
+{ type = "script", call = "module.function" }
+
+# 带参数（会作为函数的第 2+ 个参数）
+{ type = "script", call = "crypto.decrypt", args = { key = "secret", iv = "123456" } }
+```
+
+### 内置 API
+
+脚本引擎提供以下内置功能：
+
+#### 字符串处理
+```rhai
+str.trim()
+str.replace(from, to)
+str.split(delimiter)
+str.contains(pattern)
+regex.match(pattern, text)
+```
+
+#### 编码/解码
+```rhai
+base64.encode(data)
+base64.decode(data)
+hex.encode(data)
+hex.decode(data)
+url.encode(text)
+url.decode(text)
+```
+
+#### 加密/哈希
+```rhai
+md5(data)
+sha1(data)
+sha256(data)
+aes.encrypt(data, key, iv)
+aes.decrypt(data, key, iv)
+```
+
+#### JSON 处理
+```rhai
+json.parse(text)
+json.stringify(obj)
+json.get(obj, path)  // JSONPath 查询
+```
+
+#### HTTP 请求
+```rhai
+http.get(url)
+http.post(url, data)
+http.request(config)  // 完整配置
+```
+
+#### 实用工具
+```rhai
+sleep(ms)
+timestamp()
+random()
+uuid()
+```
+
+完整 API 文档请参考 [脚本配置高级指南](./advanced/scripting-config.md)。
+
+### 安全考虑
+
+- ✅ 所有脚本在沙箱环境中运行
+- ✅ 无文件系统访问权限
+- ✅ 有限的网络访问（仅 HTTP/HTTPS）
+- ✅ CPU 和内存使用限制
+- ❌ 不能执行系统命令
+- ❌ 不能加载原生库
+
+### 性能优化
+
+- 脚本在首次加载时编译，后续调用直接使用编译结果
+- 远程脚本会缓存到本地
+- 避免在循环中频繁调用脚本，考虑使用声明式步骤
+
+### 最佳实践
+
+1. **优先使用声明式步骤**: 只在无法用现有步骤实现时使用脚本
+2. **保持函数简单**: 单一职责，易于测试和维护
+3. **添加注释**: 说明函数用途和参数
+4. **错误处理**: 优雅处理异常情况
+5. **使用模块**: 按功能组织脚本（crypto、parser、utils 等）
+
+### 示例：完整的加密解密模块
+
+```toml
+[scripting]
+engine = "rhai"
+
+[scripting.modules.crypto]
+code = '''
+// AES-128-CBC 解密
+fn decrypt_aes(encrypted_base64, key, iv) {
+    try {
+        let encrypted = base64.decode(encrypted_base64);
+        let decrypted = aes.decrypt(encrypted, key, iv);
+        String::from_utf8(decrypted)
+    } catch (e) {
+        throw "解密失败: " + e
+    }
+}
+
+// URL 签名验证
+fn sign_url(url, timestamp, secret) {
+    let data = url + timestamp.to_string();
+    let signature = sha256(data + secret);
+    url + "?ts=" + timestamp + "&sign=" + signature
+}
+
+// 解析加密的 JSON
+fn decrypt_json(encrypted, key) {
+    let decrypted = decrypt_aes(encrypted, key, "0000000000000000");
+    json.parse(decrypted)
+}
+'''
+```
+
+使用：
+```toml
+[parse.detail.fields]
+video_url = [
+    { type = "selector", query = "#video-data", extract = "text" },
+    { type = "script", call = "crypto.decrypt_json", args = { key = "mykey123" } },
+    { type = "jsonpath", query = "$.url" }
+]
+```
 
 ---
 

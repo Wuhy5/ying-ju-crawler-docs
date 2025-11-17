@@ -711,9 +711,50 @@
       "enum": [
         "rhai",
         "javascript",
-        "python"
+        "python",
+        "lua"
       ],
       "type": "string"
+    },
+    "ScriptModule": {
+      "description": "Script module configuration",
+      "properties": {
+        "cache_ttl": {
+          "description": "Cache TTL for remote scripts (seconds)",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "code": {
+          "description": "Inline script code",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "engine": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ScriptEngine"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Script engine (overrides global engine if specified)"
+        },
+        "url": {
+          "description": "Remote script URL",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
     },
     "ScriptingConfig": {
       "description": "Scripting configuration",
@@ -726,18 +767,16 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "Default script engine for all modules"
         },
-        "files": {
-          "additionalProperties": true,
+        "modules": {
+          "additionalProperties": {
+            "$ref": "#/$defs/ScriptModule"
+          },
+          "description": "Script modules",
           "type": [
             "object",
-            "null"
-          ]
-        },
-        "source_dir": {
-          "type": [
-            "string",
             "null"
           ]
         }

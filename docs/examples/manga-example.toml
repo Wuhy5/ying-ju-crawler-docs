@@ -1,0 +1,175 @@
+# 漫画数据源规则示例
+# 
+# 本示例演示如何为漫画网站创建爬虫规则，包含：
+# - 漫画搜索
+# - 分类浏览
+# - 列表页解析
+# - 详情页及章节/图片列表解析
+
+[meta]
+name = "腾讯动漫"
+author = "示例作者"
+version = "1.0.0"
+description = "腾讯动漫数据采集规则（示例）"
+domain = "ac.qq.com"
+media_type = "manga"
+language = "zh-CN"
+region = "CN"
+tags = ["漫画", "动画", "图片"]
+
+[http]
+user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+timeout = 30
+rate_limit = 5
+
+[http.headers]
+Referer = "https://ac.qq.com/"
+
+# 搜索漫画
+[search]
+entry_url_template = "https://{domain}/search?q={keyword}&page={page}"
+method = "GET"
+response_type = "html"
+
+# 分类浏览
+[discover]
+entry_url_template = "https://{domain}/Comic/listByArea/{cate_id}?page={page}"
+method = "GET"
+response_type = "html"
+
+[[discover.categories]]
+name = "日漫"
+id = "japan"
+
+[[discover.categories]]
+name = "国漫"
+id = "china"
+
+[[discover.categories]]
+name = "欧美漫"
+id = "western"
+
+[[discover.categories]]
+name = "韩漫"
+id = "korea"
+
+# 排行榜
+[ranking]
+entry_url_template = "https://{domain}/rank/{type}?period={period}"
+response_type = "html"
+
+[[ranking.types]]
+name = "点击榜"
+id = "click"
+
+[[ranking.types]]
+name = "追漫榜"
+id = "follow"
+
+[[ranking.types]]
+name = "评分榜"
+id = "rating"
+
+[[ranking.periods]]
+name = "周榜"
+id = "week"
+
+[[ranking.periods]]
+name = "月榜"
+id = "month"
+
+[parse]
+  # 列表页解析
+  [parse.list]
+    item_selector = { type = "selector", query = "div.item-capsule" }
+    
+    [parse.list.fields]
+      title = [
+        { type = "selector", query = "h3.capsule-title", extract = "text" }
+      ]
+      
+      url = [
+        { type = "selector", query = "a.item-link", extract = "attr:href" }
+      ]
+      
+      cover = [
+        { type = "selector", query = "img.item-cover", extract = "attr:src" }
+      ]
+      
+      description = [
+        { type = "selector", query = "p.item-desc", extract = "text" }
+      ]
+      
+      # 作者（漫画特定字段）
+      author = [
+        { type = "selector", query = "span.author", extract = "text" }
+      ]
+      
+      # 阅读方向（漫画特定字段：从左到右或从右到左）
+      reading_direction = [
+        { type = "selector", query = "span.direction", extract = "text" }
+      ]
+      
+      # 状态（连载/完结）
+      status = [
+        { type = "selector", query = "span.status", extract = "text" }
+      ]
+      
+      # 评分
+      rating = [
+        { type = "selector", query = "span.rating", extract = "text" }
+      ]
+      
+      # 发布日期
+      publish_date = [
+        { type = "selector", query = "span.date", extract = "text" }
+      ]
+  
+  # 详情页解析
+  [parse.detail]
+    [parse.detail.fields]
+      title = [
+        { type = "selector", query = "h1.comic-title", extract = "text" }
+      ]
+      
+      author = [
+        { type = "selector", query = "span.comic-author", extract = "text" }
+      ]
+      
+      cover = [
+        { type = "selector", query = "img.comic-cover", extract = "attr:src" }
+      ]
+      
+      description = [
+        { type = "selector", query = "div.comic-desc", extract = "text" }
+      ]
+      
+      # 标签
+      tags = [
+        { type = "selector", query = "a.comic-tag" }
+      ]
+      
+      # 发布日期
+      publish_date = [
+        { type = "selector", query = "span.publish-date", extract = "text" }
+      ]
+      
+      # 更新日期
+      update_date = [
+        { type = "selector", query = "span.update-date", extract = "text" }
+      ]
+      
+      # 评分
+      rating = [
+        { type = "selector", query = "span.comic-rating", extract = "text" }
+      ]
+      
+      # 阅读方向
+      reading_direction = [
+        { type = "selector", query = "span.direction", extract = "text" }
+      ]
+      
+      # 章节列表（漫画特定）
+      chapters = [
+        { type = "selector", query = "ul.chapter-list" }
+      ]

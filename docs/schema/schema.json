@@ -1,0 +1,1450 @@
+{
+  "$comment": "Schema version: 1.0.0",
+  "$defs": {
+    "AuthConfig": {
+      "description": "Authentication configuration",
+      "oneOf": [
+        {
+          "properties": {
+            "password": {
+              "type": "string"
+            },
+            "type": {
+              "const": "basic",
+              "type": "string"
+            },
+            "username": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "username",
+            "password"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "cache_ttl": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "token": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "token_script": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "type": {
+              "const": "bearer",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "CacheBackend": {
+      "description": "Cache backend type",
+      "enum": [
+        "memory",
+        "sqlite"
+      ],
+      "type": "string"
+    },
+    "CacheConfig": {
+      "description": "Cache configuration",
+      "properties": {
+        "backend": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CacheBackend"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "default_ttl": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "enabled": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "max_size": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "scopes": {
+          "items": {
+            "$ref": "#/$defs/CacheScope"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "storage_path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "use_preset_scopes": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "CacheScope": {
+      "description": "Cache scope configuration",
+      "properties": {
+        "description": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "ttl": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
+    "CastType": {
+      "description": "Cast target type",
+      "enum": [
+        "string",
+        "int",
+        "float",
+        "bool",
+        "date",
+        "array",
+        "json"
+      ],
+      "type": "string"
+    },
+    "Category": {
+      "description": "Category definition",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "id"
+      ],
+      "type": "object"
+    },
+    "CookieScript": {
+      "description": "Cookie script configuration",
+      "properties": {
+        "cache_ttl": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "call": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "call"
+      ],
+      "type": "object"
+    },
+    "CryptoAlgorithm": {
+      "description": "Crypto algorithm",
+      "enum": [
+        "base64",
+        "hex",
+        "md5",
+        "sha1",
+        "sha256",
+        "aes",
+        "rsa"
+      ],
+      "type": "string"
+    },
+    "CryptoOperation": {
+      "description": "Crypto operation type",
+      "enum": [
+        "encode",
+        "decode",
+        "hash",
+        "encrypt",
+        "decrypt"
+      ],
+      "type": "string"
+    },
+    "DetailParse": {
+      "description": "Detail parse rules",
+      "properties": {
+        "fields": {
+          "additionalProperties": true,
+          "type": [
+            "object",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "DiscoverEntry": {
+      "description": "Discovery entry",
+      "properties": {
+        "categories": {
+          "items": {
+            "$ref": "#/$defs/Category"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "entry_url_template": {
+          "type": "string"
+        },
+        "method": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HttpMethod"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "response_type": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResponseType"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "entry_url_template"
+      ],
+      "type": "object"
+    },
+    "ErrorAction": {
+      "description": "Error action type",
+      "enum": [
+        "throw",
+        "skip",
+        "default"
+      ],
+      "type": "string"
+    },
+    "ExtractType": {
+      "anyOf": [
+        {
+          "enum": [
+            "text",
+            "html",
+            "attr:href",
+            "attr:src",
+            "attr:data-src",
+            "attr:data-url"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "string"
+        }
+      ],
+      "description": "Selector extract type"
+    },
+    "HttpConfig": {
+      "description": "HTTP configuration",
+      "properties": {
+        "auth": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthConfig"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cookie_script": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CookieScript"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cookies": {
+          "additionalProperties": true,
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "follow_redirect": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "headers": {
+          "additionalProperties": true,
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "interceptor": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Interceptor"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "max_redirects": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "proxy": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "rate_limit": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "retry_delay": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "retry_times": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "timeout": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "user_agent": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "HttpMethod": {
+      "description": "HTTP method enumeration",
+      "enum": [
+        "GET",
+        "POST",
+        "PUT",
+        "DELETE",
+        "PATCH",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "type": "string"
+    },
+    "Interceptor": {
+      "description": "HTTP interceptor configuration",
+      "properties": {
+        "after_response": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "before_request": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "ListParse": {
+      "description": "List parse rules",
+      "properties": {
+        "fields": {
+          "additionalProperties": true,
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "item_selector": {
+          "$ref": "#/$defs/Step"
+        }
+      },
+      "required": [
+        "item_selector"
+      ],
+      "type": "object"
+    },
+    "LoopOperation": {
+      "description": "Loop operation type",
+      "enum": [
+        "foreach",
+        "while",
+        "map"
+      ],
+      "type": "string"
+    },
+    "MediaType": {
+      "description": "Media type enumeration",
+      "enum": [
+        "video",
+        "audio",
+        "book",
+        "manga"
+      ],
+      "type": "string"
+    },
+    "Meta": {
+      "description": "Metadata section",
+      "properties": {
+        "author": {
+          "type": "string"
+        },
+        "description": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "domain": {
+          "type": "string"
+        },
+        "encoding": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "homepage": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "icon_url": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "language": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "media_type": {
+          "$ref": "#/$defs/MediaType"
+        },
+        "min_spec_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "region": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "spec_version": {
+          "type": "string"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "author",
+        "version",
+        "spec_version",
+        "domain",
+        "media_type"
+      ],
+      "type": "object"
+    },
+    "ParseRules": {
+      "description": "Parse rules",
+      "properties": {
+        "detail": {
+          "$ref": "#/$defs/DetailParse"
+        },
+        "list": {
+          "$ref": "#/$defs/ListParse"
+        }
+      },
+      "required": [
+        "list",
+        "detail"
+      ],
+      "type": "object"
+    },
+    "RankingEntry": {
+      "description": "Ranking entry with types and periods",
+      "properties": {
+        "entry_url_template": {
+          "type": "string"
+        },
+        "method": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HttpMethod"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "periods": {
+          "items": {
+            "$ref": "#/$defs/RankingPeriod"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "response_type": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResponseType"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "types": {
+          "items": {
+            "$ref": "#/$defs/RankingType"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "entry_url_template"
+      ],
+      "type": "object"
+    },
+    "RankingPeriod": {
+      "description": "Ranking period definition",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "id"
+      ],
+      "type": "object"
+    },
+    "RankingType": {
+      "description": "Ranking type definition",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "id"
+      ],
+      "type": "object"
+    },
+    "RecommendationEntry": {
+      "description": "Recommendation entry",
+      "properties": {
+        "entry_url_template": {
+          "type": "string"
+        },
+        "method": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HttpMethod"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "response_type": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResponseType"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "entry_url_template"
+      ],
+      "type": "object"
+    },
+    "ResponseType": {
+      "description": "Response type enumeration",
+      "enum": [
+        "html",
+        "json",
+        "xml",
+        "text"
+      ],
+      "type": "string"
+    },
+    "ScriptEngine": {
+      "description": "Script engine type",
+      "enum": [
+        "rhai",
+        "javascript",
+        "python"
+      ],
+      "type": "string"
+    },
+    "ScriptingConfig": {
+      "description": "Scripting configuration",
+      "properties": {
+        "engine": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ScriptEngine"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "files": {
+          "additionalProperties": true,
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "source_dir": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "SearchEntry": {
+      "description": "Search entry",
+      "properties": {
+        "entry_url_template": {
+          "type": "string"
+        },
+        "method": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HttpMethod"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "response_type": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResponseType"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "entry_url_template"
+      ],
+      "type": "object"
+    },
+    "Step": {
+      "description": "Step type in pipeline",
+      "oneOf": [
+        {
+          "properties": {
+            "extract": {
+              "$ref": "#/$defs/ExtractType"
+            },
+            "index": {
+              "format": "uint",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "query": {
+              "type": "string"
+            },
+            "type": {
+              "const": "selector",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "query",
+            "extract"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "query": {
+              "type": "string"
+            },
+            "type": {
+              "const": "jsonpath",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "query"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "group": {
+              "format": "uint",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "query": {
+              "type": "string"
+            },
+            "type": {
+              "const": "regex",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "query"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "args": true,
+            "call": {
+              "type": "string"
+            },
+            "type": {
+              "const": "script",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "call"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "delimiter": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "from": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "operation": {
+              "$ref": "#/$defs/StringOperation"
+            },
+            "prefix": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "suffix": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "template": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "to": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "type": {
+              "const": "string",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "operation"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "headers": {
+              "additionalProperties": true,
+              "type": [
+                "object",
+                "null"
+              ]
+            },
+            "method": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/HttpMethod"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "post_data_template": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "response_type": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ResponseType"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": {
+              "const": "httprequest",
+              "type": "string"
+            },
+            "url_template": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "url_template"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "condition": {
+              "type": "string"
+            },
+            "if_false": {
+              "items": {
+                "$ref": "#/$defs/Step"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            },
+            "if_true": {
+              "items": {
+                "$ref": "#/$defs/Step"
+              },
+              "type": "array"
+            },
+            "type": {
+              "const": "conditional",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "condition",
+            "if_true"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "condition": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "max_iterations": {
+              "format": "uint",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "operation": {
+              "$ref": "#/$defs/LoopOperation"
+            },
+            "pipeline": {
+              "items": {
+                "$ref": "#/$defs/Step"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            },
+            "type": {
+              "const": "loop",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "operation"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "condition": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "operation": {
+              "$ref": "#/$defs/TransformOperation"
+            },
+            "pipeline": {
+              "items": {
+                "$ref": "#/$defs/Step"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            },
+            "type": {
+              "const": "transform",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "operation"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "default_value": true,
+            "error_action": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ErrorAction"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "rule": {
+              "type": "string"
+            },
+            "type": {
+              "const": "validate",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "rule"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "default_value": true,
+            "error_action": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ErrorAction"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "format": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "to": {
+              "$ref": "#/$defs/CastType"
+            },
+            "type": {
+              "const": "cast",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "to"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "algorithm": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/CryptoAlgorithm"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "iv": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "key": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "mode": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "operation": {
+              "$ref": "#/$defs/CryptoOperation"
+            },
+            "padding": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "type": {
+              "const": "crypto",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "operation"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "constant",
+              "type": "string"
+            },
+            "value": true
+          },
+          "required": [
+            "type",
+            "value"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "key": {
+              "type": "string"
+            },
+            "scope": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "ttl": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "type": {
+              "const": "cachekey",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "key"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "key": {
+              "type": "string"
+            },
+            "scope": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "type": {
+              "const": "cacheretrieve",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "key"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "key": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "scope": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "type": {
+              "const": "cacheclear",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "action": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/WebViewAction"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "extract": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/WebViewExtract"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "timeout": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "type": {
+              "const": "webview",
+              "type": "string"
+            },
+            "url": {
+              "type": "string"
+            },
+            "wait_for": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "type",
+            "url"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "StringOperation": {
+      "description": "String operation type",
+      "enum": [
+        "prepend",
+        "append",
+        "replace",
+        "split",
+        "trim",
+        "template"
+      ],
+      "type": "string"
+    },
+    "TransformOperation": {
+      "description": "Transform operation type",
+      "enum": [
+        "map",
+        "filter",
+        "flatten",
+        "first",
+        "last",
+        "unique"
+      ],
+      "type": "string"
+    },
+    "WebViewAction": {
+      "description": "WebView action type",
+      "enum": [
+        "wait",
+        "login"
+      ],
+      "type": "string"
+    },
+    "WebViewExtract": {
+      "description": "WebView extract type",
+      "enum": [
+        "cookies",
+        "html",
+        "storage"
+      ],
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Root rule file structure",
+  "properties": {
+    "cache": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CacheConfig"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "discover": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DiscoverEntry"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "http": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/HttpConfig"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "meta": {
+      "$ref": "#/$defs/Meta"
+    },
+    "parse": {
+      "$ref": "#/$defs/ParseRules"
+    },
+    "ranking": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/RankingEntry"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "recommendation": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/RecommendationEntry"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "scripting": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ScriptingConfig"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "search": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SearchEntry"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "meta",
+    "parse"
+  ],
+  "title": "RuleFile",
+  "type": "object"
+}

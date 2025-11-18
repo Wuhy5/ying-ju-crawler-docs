@@ -1,452 +1,435 @@
-# Schema 定义
+# JSON Schema 规范
 
-本目录包含媒体爬虫规范的 Schema 定义，包括 Rust 类型定义和自动生成的 JSON Schema。
+本目录包含媒体爬虫规范的 JSON Schema 定义，用于规则文件的结构验证和类型检查。
 
 ## 概述
 
-Schema 是规范的核心，定义了规则文件的结构和约束。我们使用 Rust 作为单一真实来源（Single Source of Truth），通过 `schemars` 库自动生成 JSON Schema，确保类型安全和一致性。
+JSON Schema 是规范的核心验证机制，定义了规则文件的完整结构和约束条件。我们使用 Rust 类型定义作为单一真实来源，通过 `schemars` 库自动生成 JSON Schema，确保类型安全和一致性。
 
-## Rust Schema
+## 文件结构
 
-类型定义位于 [`ying-ju-crawler-schema/src/lib.rs`](https://github.com/Wuhy5/ying-ju-crawler-schema)，使用：
-- `serde`: 序列化/反序列化
-- `schemars`: JSON Schema 生成
+- **`schema.json`** - 自动生成的完整 JSON Schema 文件
+- **`README.md`** - 本文档
 
-### 基本使用
+## Schema 生成
 
-```rust
-use crawler_schema::{RuleFile, MediaType};
-use std::fs;
-
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // 从 TOML 文件加载规则
-    let content = fs::read_to_string("rule.toml")?;
-    let rule: RuleFile = toml::from_str(&content)?;
-    
-    // 访问元数据
-    println!("规则名称: {}", rule.meta.name);
-    println!("媒体类型: {:?}", rule.meta.media_type);
-    
-    // 检查可用入口
-    if let Some(search) = rule.search {
-        println!("支持搜索: {}", search.entry_url_template);
-    }
-    
-    Ok(())
-}
-```
-
-## JSON Schema
-
-自动生成的 JSON Schema 位于 [`schema.json`](./schema.json)，可用于：
-- IDE 智能提示和验证
-- CI/CD 管道中的自动验证
-- 文档生成工具
-
-### 生成 JSON Schema
+Schema 通过 Rust 代码自动生成：
 
 ```bash
-# 在项目根目录执行
-cd ying-ju-crawler-schema
+# 在 ying-ju-crawler-schema 目录中执行
+cd ../ying-ju-crawler-schema
 cargo run --bin generate_schema
 ```
 
 此命令会：
 1. 从 Rust 类型定义生成 JSON Schema
-2. 添加版本信息到 `$comment` 字段
-3. 输出到 `../ying-ju-crawler-docs/docs/schema/schema.json`
+2. 添加版本信息和元数据
+3. 输出到 `docs/schema/schema.json`
 
-### 使用 JSON Schema 验证
+## 使用方式
 
-编辑器配置示例（VS Code）：
+### 编辑器集成
+
+在 VS Code 中启用 JSON Schema 验证：
 
 ```json
 {
   "yaml.schemas": {
-    "./docs/schema/schema.json": "*.rule.toml"
-  }
+    "./docs/schema/schema.json": ["*.toml", "*.rule.toml"]
+  },
+  "json.schemas": [
+    {
+      "fileMatch": ["*.rule.json"],
+      "url": "./docs/schema/schema.json"
+    }
+  ]
 }
 ```
 
-命令行验证（需要先将 TOML 转换为 JSON）：
+### 命令行验证
+
+使用 JSON Schema 验证工具：
 
 ```bash
-# 使用 ajv-cli
+# 安装验证工具
 npm install -g ajv-cli
+
+# 验证 TOML 文件（需要先转换为 JSON）
 ajv validate -s schema.json -d rule.json
 ```
 
-## 类型层次
+### 程序化验证
 
-### 顶层结构
+在 Rust 代码中使用：
 
 ```rust
-RuleFile {
-    meta: Meta,                    // 必需：元数据
-    http: Option<HttpConfig>,      // 可选：HTTP 配置
-    scripting: Option<ScriptingConfig>,  // 可选：脚本配置
-    cache: Option<CacheConfig>,    // 可选：缓存配置
-    discover: Option<DiscoverEntry>,     // 可选：发现入口
-    search: Option<SearchEntry>,   // 可选：搜索入口
-    recommendation: Option<RecommendationEntry>,  // 可选：推荐入口
-    ranking: Option<RankingEntry>, // 可选：排行榜入口
-    parse: ParseRules,             // 必需：解析规则
+use ying_ju_crawler_schema::RuleFile;
+use std::fs;
+
+// 加载和验证规则文件
+let content = fs::read_to_string("rule.toml")?;
+let rule: RuleFile = toml::from_str(&content)?;
+
+// 规则文件会自动通过类型系统验证
+println!("规则名称: {}", rule.meta.name);
+println!("媒体类型: {:?}", rule.meta.media_type);
+```
+
+## 核心类型定义
+
+### 规则文件结构
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RuleFile",
+  "type": "object",
+  "properties": {
+    "meta": { "$ref": "#/$defs/Meta" },
+    "config": { "$ref": "#/$defs/Config" },
+    "scripting": { "$ref": "#/$defs/ScriptingConfig" },
+    "components": { "$ref": "#/$defs/Components" },
+    "flows": { "$ref": "#/$defs/Flows" }
+  },
+  "required": ["meta"]
 }
 ```
 
 ### 元数据 (Meta)
 
-```rust
-Meta {
-    name: String,                  // 规则名称
-    author: String,                // 作者
-    version: String,               // 规则版本
-    spec_version: String,          // 规范版本
-    domain: String,                // 目标域名
-    media_type: MediaType,         // 媒体类型: video, audio, book, manga
-    description: Option<String>,   // 描述
-    min_spec_version: Option<String>,  // 最低兼容规范版本
-    encoding: Option<String>,      // 页面编码
-    icon_url: Option<String>,      // 图标 URL
-    homepage: Option<String>,      // 主页 URL
-    language: Option<String>,      // 语言
-    region: Option<String>,        // 地区
-    tags: Option<Vec<String>>,     // 标签
-}
-```
-
-### 入口类型
-
-所有入口类型都包含以下字段：
-
-```rust
+```json
 {
-    entry_url_template: String,    // URL 模板
-    method: Option<HttpMethod>,    // HTTP 方法，默认 GET
-    response_type: Option<ResponseType>,  // 响应类型，默认 html
-}
-```
-
-特定入口的额外字段：
-
-- **DiscoverEntry**: `categories: Option<Vec<Category>>` - 分类列表
-- **RankingEntry**: 
-  - `types: Option<Vec<RankingType>>` - 排行榜类型
-  - `periods: Option<Vec<RankingPeriod>>` - 时间周期
-
-### 解析规则 (ParseRules)
-
-```rust
-ParseRules {
-    list: ListParse {
-        item_selector: Step,       // 列表项选择器
-        fields: Option<Map<String, Value>>,  // 字段提取管道
+  "Meta": {
+    "type": "object",
+    "properties": {
+      "name": { "type": "string" },
+      "description": { "type": "string" },
+      "author": { "type": "string" },
+      "version": { "type": "string" },
+      "spec_version": { "type": "string" },
+      "media_type": {
+        "enum": ["video", "audio", "book", "manga"]
+      },
+      "domain": { "type": "string" },
+      "language": { "type": "string" },
+      "region": { "type": "string" },
+      "tags": {
+        "type": "array",
+        "items": { "type": "string" }
+      }
     },
-    detail: DetailParse {
-        fields: Option<Map<String, Value>>,  // 字段提取管道
-    },
-}
-```
-
-### 管道步骤 (Step)
-
-Step 是一个带标签的枚举，每个变体代表一种数据处理操作：
-
-#### 数据提取步骤
-
-- **Selector**: CSS 选择器提取
-  ```rust
-  { type = "selector", query = "div.title", extract = "text" }
-  ```
-
-- **Jsonpath**: JSONPath 查询
-  ```rust
-  { type = "jsonpath", query = "$.data[*].title" }
-  ```
-
-- **Regex**: 正则表达式匹配
-  ```rust
-  { type = "regex", query = "id=(\\d+)", group = 1 }
-  ```
-
-#### 数据转换步骤
-
-- **String**: 字符串操作 (prepend, append, replace, split, trim, template)
-  ```rust
-  { type = "string", operation = "prepend", prefix = "https://" }
-  ```
-
-- **Transform**: 数组转换 (map, filter, flatten, first, last, unique)
-  ```rust
-  { type = "transform", operation = "first" }
-  ```
-
-- **Cast**: 类型转换
-  ```rust
-  { type = "cast", to = "int" }
-  ```
-
-#### 流程控制步骤
-
-- **Conditional**: 条件分支
-  ```rust
-  {
-    type = "conditional",
-    condition = "len(input) > 0",
-    if_true = [{ type = "constant", value = "有效" }],
-    if_false = [{ type = "constant", value = "无效" }]
+    "required": ["name", "author", "version", "spec_version", "media_type", "domain"]
   }
-  ```
-
-- **Loop**: 循环处理 (foreach, while, map)
-  ```rust
-  {
-    type = "loop",
-    operation = "foreach",
-    pipeline = [{ type = "selector", query = "a", extract = "attr:href" }]
-  }
-  ```
-
-#### 高级步骤
-
-- **HttpRequest**: 发起新的 HTTP 请求
-- **Script**: 调用自定义脚本
-- **Crypto**: 加密/解密操作
-- **Validate**: 数据验证
-- **CacheKey/CacheRetrieve/CacheClear**: 缓存操作
-- **WebView**: 使用浏览器引擎渲染
-- **Constant**: 返回常量值
-
-完整的步骤类型和参数请参考 [管道文档](../pipeline/README.md)。
-
-## 扩展 Schema
-
-### 添加新的步骤类型
-
-当需要添加新的管道步骤时：
-
-1. **在 Rust 中定义新变体**
-
-编辑 `ying-ju-crawler-schema/src/lib.rs`：
-
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(tag = "type", rename_all = "lowercase")]
-pub enum Step {
-    // ... 现有步骤
-    
-    // 新步骤: XPath 查询
-    Xpath {
-        query: String,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        index: Option<usize>,
-    },
 }
 ```
 
-2. **重新生成 JSON Schema**
+### 配置结构
 
-```bash
-cd ying-ju-crawler-schema
-cargo run --bin generate_schema
+#### HTTP 配置
+
+```json
+{
+  "HttpConfig": {
+    "type": "object",
+    "properties": {
+      "timeout": { "type": "integer", "minimum": 0 },
+      "user_agent": { "type": "string" },
+      "headers": {
+        "type": "object",
+        "additionalProperties": { "type": "string" }
+      },
+      "proxy": { "type": "string" },
+      "retry_count": { "type": "integer", "minimum": 0 },
+      "follow_redirects": { "type": "boolean" }
+    }
+  }
+}
 ```
 
-3. **添加文档**
+#### 缓存配置
 
-在相应的管道文档中添加使用说明。
+```json
+{
+  "CacheConfig": {
+    "type": "object",
+    "properties": {
+      "backend": { "enum": ["memory", "sqlite"] },
+      "database_path": { "type": "string" },
+      "strategies": {
+        "type": "object",
+        "additionalProperties": { "$ref": "#/$defs/CacheStrategy" }
+      }
+    }
+  }
+}
+```
 
-4. **添加测试用例**
+#### 脚本配置
 
-```rust
-#[cfg(test)]
-mod tests {
-    use super::*;
-    
-    #[test]
-    fn test_xpath_step() {
-        let json = r#"{"type": "xpath", "query": "//div[@class='title']"}"#;
-        let step: Step = serde_json::from_str(json).unwrap();
-        match step {
-            Step::Xpath { query, .. } => {
-                assert_eq!(query, "//div[@class='title']");
-            }
-            _ => panic!("Expected Xpath step"),
+```json
+{
+  "ScriptingConfig": {
+    "type": "object",
+    "properties": {
+      "engine": {
+        "type": "object",
+        "properties": {
+          "type": { "enum": ["rhai", "javascript", "python"] }
         }
+      },
+      "modules": {
+        "type": "object",
+        "additionalProperties": { "$ref": "#/$defs/ScriptModule" }
+      }
+    }
+  }
+}
+```
+
+### 流水线步骤
+
+流水线步骤使用标签联合类型：
+
+```json
+{
+  "Step": {
+    "oneOf": [
+      {
+        "type": "object",
+        "properties": {
+          "type": { "const": "http_request" },
+          "url": { "type": "string" },
+          "method": { "enum": ["GET", "POST", "PUT", "DELETE"] },
+          "headers": { "type": "object" },
+          "output": { "type": "string" }
+        },
+        "required": ["type", "url", "output"]
+      },
+      {
+        "type": "object",
+        "properties": {
+          "type": { "const": "parse_json" },
+          "input": { "type": "string" },
+          "output": { "type": "string" }
+        },
+        "required": ["type", "input", "output"]
+      }
+      // ... 更多步骤类型
+    ]
+  }
+}
+```
+
+## 验证规则
+
+### 自动验证
+
+JSON Schema 提供以下验证：
+
+- ✅ **必需字段检查**: 确保必须的字段都存在
+- ✅ **类型验证**: 字段值类型必须正确
+- ✅ **枚举约束**: 值必须是预定义选项之一
+- ✅ **格式验证**: URL、版本号等格式检查
+- ✅ **范围检查**: 数字的最小值、最大值限制
+
+### 业务逻辑验证
+
+除了 Schema 验证，还需要业务逻辑检查：
+
+```rust
+impl RuleFile {
+    pub fn validate_business_logic(&self) -> Result<(), ValidationError> {
+        // 检查至少有一个流程
+        if self.flows.is_empty() {
+            return Err(ValidationError::NoFlows);
+        }
+
+        // 检查脚本模块引用是否存在
+        for flow in &self.flows {
+            for step in &flow.actions {
+                if let Step::Script { call, .. } = step {
+                    if !self.scripting.modules.contains_key(call) {
+                        return Err(ValidationError::MissingScriptModule(call.clone()));
+                    }
+                }
+            }
+        }
+
+        Ok(())
     }
 }
 ```
 
-### 添加新的媒体类型
+## 扩展 Schema
+
+### 添加新步骤类型
+
+1. **在 Rust 中定义新步骤**
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "type")]
+pub enum Step {
+    // ... 现有步骤
+
+    // 新步骤：XPath 查询
+    XPath {
+        query: String,
+        #[serde(default)]
+        extract: ExtractType,
+    },
+}
+```
+
+2. **重新生成 Schema**
+
+```bash
+cargo run --bin generate_schema
+```
+
+3. **更新文档**
+
+在流水线文档中添加新步骤的使用说明。
+
+### 添加新配置选项
+
+1. **扩展配置结构体**
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct HttpConfig {
+    // ... 现有字段
+
+    #[serde(default)]
+    pub connection_pool_size: Option<usize>,
+}
+```
+
+2. **重新生成并测试**
+
+### 添加新媒体类型
 
 1. **扩展 MediaType 枚举**
 
 ```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum MediaType {
     Video,
     Audio,
     Book,
     Manga,
-    Podcast,  // 新媒体类型
+    Podcast,  // 新类型
 }
 ```
 
-2. **定义媒体特定字段**
+2. **更新相关文档**
 
-在相应的媒体类型文档中定义该类型特有的字段约定。
+## 测试和验证
 
-3. **重新生成 Schema 并更新文档**
-
-### 添加新的枚举值
-
-对于现有枚举类型（如 `ExtractType`、`StringOperation` 等），添加新值的过程类似：
+### 单元测试
 
 ```rust
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
-pub enum ExtractType {
-    Text,
-    Html,
-    // ... 现有值
-    
-    #[serde(rename = "attr:data-lazy")]
-    AttrDataLazy,  // 新的提取类型
-}
-```
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
 
-## Schema 验证
+    #[test]
+    fn test_schema_validation() {
+        let schema = generate_schema();
+        let rule_json = json!({
+            "meta": {
+                "name": "Test Rule",
+                "author": "Test",
+                "version": "1.0.0",
+                "spec_version": "1.0.0",
+                "media_type": "video",
+                "domain": "example.com"
+            },
+            "flows": {
+                "search": {
+                    "actions": [
+                        {
+                            "type": "http_request",
+                            "url": "https://api.example.com/search",
+                            "output": "response"
+                        }
+                    ]
+                }
+            }
+        });
 
-### 自动验证
-
-JSON Schema 提供以下自动验证：
-
-- ✅ **必需字段**: `meta` 和 `parse` 必须存在
-- ✅ **类型检查**: 字段值类型必须正确（字符串、数字、布尔等）
-- ✅ **枚举约束**: 枚举值必须是预定义的选项之一
-- ✅ **步骤结构**: 每个步骤必须有正确的 `type` 和对应参数
-- ✅ **递归结构**: 支持嵌套的管道（如 `conditional.if_true`）
-
-### 手动验证
-
-除了 Schema 验证，还应该进行业务逻辑验证：
-
-```rust
-impl RuleFile {
-    pub fn validate(&self) -> Result<(), ValidationError> {
-        // 检查至少有一个入口
-        if self.discover.is_none() 
-            && self.search.is_none() 
-            && self.recommendation.is_none() 
-            && self.ranking.is_none() {
-            return Err(ValidationError::NoEntry);
-        }
-        
-        // 检查 URL 模板格式
-        // 检查脚本引用是否存在
-        // ...
-        
-        Ok(())
+        // 使用 jsonschema 库验证
+        assert!(schema.validate(&rule_json).is_ok());
     }
 }
 ```
 
-## 测试工具
-
-### 验证规则文件
-
-```bash
-# 使用 Rust 验证
-cd ying-ju-crawler-schema
-cargo test
-
-# 解析示例文件
-cargo run --example parse_rule -- path/to/rule.toml
-```
-
-### 生成测试用例
+### 集成测试
 
 ```rust
-use crawler_schema::*;
-
 #[test]
-fn test_minimal_rule() {
-    let toml = r#"
-[meta]
-name = "Test Rule"
-author = "Test"
-version = "1.0.0"
-spec_version = "1.0.0"
-domain = "example.com"
-media_type = "video"
+fn test_real_rule_files() {
+    for entry in std::fs::read_dir("examples/").unwrap() {
+        let path = entry.unwrap().path();
+        if path.extension() == Some(std::ffi::OsStr::new("toml")) {
+            let content = std::fs::read_to_string(&path).unwrap();
+            let rule: RuleFile = toml::from_str(&content).unwrap();
 
-[search]
-entry_url_template = "https://{domain}/search?q={keyword}"
-
-[parse.list]
-item_selector = { type = "selector", query = ".item", extract = "text" }
-
-[parse.detail]
-"#;
-
-    let rule: RuleFile = toml::from_str(toml).unwrap();
-    assert_eq!(rule.meta.name, "Test Rule");
-    assert_eq!(rule.meta.media_type, MediaType::Video);
-    assert!(rule.search.is_some());
+            // 验证业务逻辑
+            rule.validate_business_logic().unwrap();
+        }
+    }
 }
 ```
 
-## 相关资源
+## 版本管理
 
-### 源代码
+Schema 版本通过以下方式管理：
 
-- **Schema 定义**: [`ying-ju-crawler-schema/src/lib.rs`](https://github.com/Wuhy5/ying-ju-crawler-schema/blob/master/src/lib.rs)
-- **Schema 生成器**: [`ying-ju-crawler-schema/src/bin/generate_schema.rs`](https://github.com/Wuhy5/ying-ju-crawler-schema/blob/master/src/bin/generate_schema.rs)
-
-### 相关文档
-
-- [核心概念](../core-concepts.md) - 理解规范的设计思想
-- [通用规范](../common-spec.md) - 所有媒体类型共享的配置
-- [管道系统](../pipeline/README.md) - 深入了解数据处理管道
-- [示例](../examples/README.md) - 完整的规则文件示例
-
-### 外部工具
-
-- [serde](https://serde.rs/) - Rust 序列化框架
-- [schemars](https://graham.cool/schemars/) - JSON Schema 生成
-- [TOML](https://toml.io/) - 配置文件格式
-- [JSON Schema](https://json-schema.org/) - Schema 规范
+- **规范版本**: 通过 `spec_version` 字段声明
+- **向后兼容**: 新版本必须兼容旧规则文件
+- **版本检查**: 运行时验证规则文件与规范版本的兼容性
 
 ## 常见问题
 
-### 如何查看完整的类型定义？
+### Schema 验证失败怎么办？
 
-查看 [`ying-ju-crawler-schema/src/lib.rs`](https://github.com/Wuhy5/ying-ju-crawler-schema/blob/master/src/lib.rs) 源代码，它包含了所有类型、字段和注释。
+1. **检查必需字段**: 确保所有必需字段都存在
+2. **验证类型**: 检查字段值类型是否正确
+3. **查看枚举值**: 确保枚举字段使用预定义值
+4. **检查格式**: URL 和版本号等格式是否正确
 
-### 为什么不直接手写 JSON Schema？
+### 如何调试验证错误？
 
-使用 Rust 作为单一真实来源有以下优势：
-- 类型安全，编译时检查
-- 避免手动维护导致的不一致
-- 可以直接用于 Rust 实现的爬虫引擎
-- 自动生成文档和验证工具
+启用详细错误信息：
 
-### 如何贡献新的步骤类型？
+```rust
+use jsonschema::{JSONSchema, ValidationError};
 
-1. Fork 仓库
-2. 在 `Step` 枚举中添加新变体
-3. 添加测试用例
-4. 重新生成 JSON Schema
-5. 更新文档
-6. 提交 Pull Request
+let schema = JSONSchema::compile(&schema_json).unwrap();
+let result = schema.validate(&instance);
 
-### Schema 版本如何管理？
+if let Err(errors) = result {
+    for error in errors {
+        eprintln!("验证错误: {}", error);
+        eprintln!("实例路径: {}", error.instance_path);
+        eprintln!("Schema 路径: {}", error.schema_path);
+    }
+}
+```
 
-Schema 版本通过 `Cargo.toml` 中的版本号管理，生成的 JSON Schema 会在 `$comment` 字段中包含版本信息。规则文件通过 `spec_version` 字段声明使用的规范版本。
+### 性能考虑
 
-## 下一步
+- Schema 编译是开销较大的操作，应该缓存编译结果
+- 大文件验证时注意内存使用
+- 考虑使用流式验证处理超大文件
 
-- 📖 阅读 [通用规范](../common-spec.md) 了解完整的配置选项
-- 🔧 查看 [管道系统](../pipeline/README.md) 学习数据处理
-- 💡 参考 [示例](../examples/README.md) 快速上手
-- 🎬 查看 [影视规范](../media-types/video.md) 了解媒体特定字段
+## 相关文档
+
+- **[核心概念](../../core/concepts.md)** - 理解规范基础
+- **[规则文件结构](../../core/rule-file.md)** - 文件组织方式
+- **[流水线系统](../../spec/pipeline.md)** - 步骤类型详解
+- **[字段映射](../../spec/field-mapping.md)** - 数据转换规范
+- **[媒体类型](../../spec/media-types.md)** - 媒体数据模型

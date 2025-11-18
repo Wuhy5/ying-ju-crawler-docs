@@ -1,403 +1,340 @@
 {
   "$comment": "Schema version: 1.0.0",
   "$defs": {
-    "AuthConfig": {
-      "description": "Authentication configuration",
+    "CacheBackend": {
+      "description": "缓存后端 (CacheBackend)\n用于指定缓存存储的后端类型。",
       "oneOf": [
         {
-          "properties": {
-            "password": {
-              "type": "string"
-            },
-            "type": {
-              "const": "basic",
-              "type": "string"
-            },
-            "username": {
-              "type": "string"
-            }
-          },
-          "required": [
-            "type",
-            "username",
-            "password"
-          ],
-          "type": "object"
+          "const": "memory",
+          "description": "内存缓存，适合临时数据存储。",
+          "type": "string"
         },
         {
-          "properties": {
-            "cache_ttl": {
-              "format": "uint32",
-              "minimum": 0,
-              "type": [
-                "integer",
-                "null"
-              ]
-            },
-            "token": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "token_script": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "type": {
-              "const": "bearer",
-              "type": "string"
-            }
-          },
-          "required": [
-            "type"
-          ],
-          "type": "object"
+          "const": "sqlite",
+          "description": "SQLite 数据库存储，适合持久化缓存。",
+          "type": "string"
         }
       ]
     },
-    "CacheBackend": {
-      "description": "Cache backend type",
-      "enum": [
-        "memory",
-        "sqlite"
-      ],
-      "type": "string"
-    },
     "CacheConfig": {
-      "description": "Cache configuration",
+      "additionalProperties": false,
+      "description": "缓存配置 (CacheConfig)\n定义规则的缓存策略。",
       "properties": {
         "backend": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/CacheBackend"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "$ref": "#/$defs/CacheBackend",
+          "description": "缓存后端类型。"
         },
         "default_ttl": {
+          "description": "默认的缓存过期时间（秒）。",
           "format": "uint32",
           "minimum": 0,
-          "type": [
-            "integer",
-            "null"
-          ]
-        },
-        "enabled": {
-          "type": [
-            "boolean",
-            "null"
-          ]
-        },
-        "max_size": {
-          "format": "uint32",
-          "minimum": 0,
-          "type": [
-            "integer",
-            "null"
-          ]
-        },
-        "scopes": {
-          "items": {
-            "$ref": "#/$defs/CacheScope"
-          },
-          "type": [
-            "array",
-            "null"
-          ]
-        },
-        "storage_path": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "use_preset_scopes": {
-          "type": [
-            "boolean",
-            "null"
-          ]
+          "type": "integer"
         }
       },
+      "required": [
+        "backend",
+        "default_ttl"
+      ],
       "type": "object"
     },
-    "CacheScope": {
-      "description": "Cache scope configuration",
+    "Component": {
+      "additionalProperties": false,
+      "description": "可重用组件 (Component)\n一个可被其他管道调用的、封装了特定逻辑的子管道。",
       "properties": {
         "description": {
+          "description": "组件的功能描述。",
           "type": [
             "string",
             "null"
           ]
         },
-        "name": {
+        "inputs": {
+          "additionalProperties": false,
+          "description": "定义组件接收的输入参数 (key: 参数名, value: 默认值)。",
+          "patternProperties": {
+            "^[a-zA-Z_][a-zA-Z0-9_]*$": true
+          },
+          "type": "object"
+        },
+        "pipeline": {
+          "description": "组件的核心处理管道。",
+          "items": {
+            "$ref": "#/$defs/Step"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "inputs",
+        "pipeline"
+      ],
+      "type": "object"
+    },
+    "EntryPoint": {
+      "description": "定义流程的起始方式，取代了原有的 `flow_type` 字符串。",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "**发现/浏览类型**: 用于需要复杂分类和筛选条件的场景。",
+          "properties": {
+            "discover": {
+              "properties": {
+                "filters": {
+                  "description": "定义此发现页面的所有筛选器组，UI将根据此结构动态生成筛选面板。",
+                  "items": {
+                    "$ref": "#/$defs/FilterGroup"
+                  },
+                  "type": "array"
+                },
+                "url": {
+                  "description": "URL模板。占位符的名称应与 `filters` 中定义的 `key` 相对应。\n例如: `\"/list/{{cate_id}}-{{area}}-{{year}}.html?sort_by={{sort}}\"`",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "url",
+                "filters"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "discover"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "**搜索类型**: 用于简单的关键词搜索场景。",
+          "properties": {
+            "search": {
+              "properties": {
+                "url": {
+                  "description": "URL模板，必须包含 `{{keyword}}` 占位符。",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "url"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "search"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "**通用类型**: 用于没有特定UI入口的流程，如“登录”、“签到”等。",
+          "properties": {
+            "general": {
+              "properties": {
+                "url": {
+                  "description": "一个固定的或简单的模板URL。",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "url"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "general"
+          ],
+          "type": "object"
+        }
+      ],
+      "title": "入口点 (EntryPoint)"
+    },
+    "ExtractType": {
+      "anyOf": [
+        {
+          "const": "text",
+          "description": "提取文本内容",
           "type": "string"
         },
-        "ttl": {
-          "format": "uint32",
-          "minimum": 0,
+        {
+          "const": "html",
+          "description": "提取内部HTML",
+          "type": "string"
+        },
+        {
+          "const": "outer_html",
+          "description": "提取完整HTML",
+          "type": "string"
+        },
+        {
+          "const": "attr:href",
+          "description": "提取 `href` 属性",
+          "type": "string"
+        },
+        {
+          "const": "attr:src",
+          "description": "提取 `src` 属性",
+          "type": "string"
+        },
+        {
+          "const": "attr:data-src",
+          "description": "提取 `data-src` 属性",
+          "type": "string"
+        },
+        {
+          "description": "提取自定义属性，格式为 `attr:your-attribute-name`",
+          "type": "string"
+        }
+      ],
+      "description": "选择器提取方式"
+    },
+    "FieldMapping": {
+      "additionalProperties": false,
+      "description": "字段映射规则 (FieldMapping)\n定义源字段到目标字段的映射关系。",
+      "properties": {
+        "from": {
+          "description": "源字段路径，支持点号访问嵌套字段，如 \"data.title\" 或简单字段名 \"title\"",
+          "type": "string"
+        },
+        "to": {
+          "description": "目标字段名，必须是目标模型中的有效字段名\n如 ItemSummary: id, title, url, media_type, cover, summary, tags, meta\n如 ItemDetail: id, title, url, media_type, cover, description, metadata, tags, content",
+          "type": "string"
+        },
+        "transform": {
+          "description": "可选的转换函数（预留），如 \"to_lowercase\", \"trim\", \"parse_int\" 等",
           "type": [
-            "integer",
+            "string",
             "null"
           ]
         }
       },
       "required": [
-        "name"
+        "from",
+        "to"
       ],
       "type": "object"
     },
-    "CastType": {
-      "description": "Cast target type",
-      "enum": [
-        "string",
-        "int",
-        "float",
-        "bool",
-        "date",
-        "array",
-        "json"
-      ],
-      "type": "string"
-    },
-    "Category": {
-      "description": "Category definition",
+    "FilterGroup": {
+      "additionalProperties": false,
+      "description": "代表UI上一组相关的筛选选项，如“地区”、“年份”。",
       "properties": {
-        "id": {
-          "type": "string"
+        "key": {
+          "$ref": "#/$defs/Identifier",
+          "description": "此筛选器组在URL模板中对应的键 (`key`)。\n例如，如果 `key` 是 `\"cate_id\"`，则UI会将用户选择的值替换到URL的 `{{cate_id}}` 位置。"
+        },
+        "multiselect": {
+          "default": false,
+          "description": "是否允许多选。",
+          "type": "boolean"
         },
         "name": {
+          "description": "筛选器组的显示名称，如 \"按类型\"。",
+          "type": "string"
+        },
+        "options": {
+          "description": "此筛选器组下所有可用的选项。",
+          "items": {
+            "$ref": "#/$defs/FilterOption"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "key",
+        "options"
+      ],
+      "title": "筛选器组 (FilterGroup)",
+      "type": "object"
+    },
+    "FilterOption": {
+      "additionalProperties": false,
+      "description": "代表一个具体的筛选选项，如“电影”或“2023年”。",
+      "properties": {
+        "name": {
+          "description": "选项的显示名称，如 \"美国\"。",
+          "type": "string"
+        },
+        "value": {
+          "description": "选项的值，将用于替换URL模板中对应的 `key`。\n例如，如果 `key` 是 `\"area\"`，此 `value` 可能是 `\"USA\"`。",
           "type": "string"
         }
       },
       "required": [
         "name",
-        "id"
+        "value"
       ],
+      "title": "筛选器选项 (FilterOption)",
       "type": "object"
     },
-    "CookieScript": {
-      "description": "Cookie script configuration",
+    "Flow": {
+      "additionalProperties": false,
+      "description": "流程 (Flow)\n定义一个完整的、可独立执行的任务,如\"搜索\"、\"发现\"或\"登录\"。",
       "properties": {
-        "cache_ttl": {
-          "format": "uint32",
-          "minimum": 0,
-          "type": [
-            "integer",
-            "null"
-          ]
-        },
-        "call": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "call"
-      ],
-      "type": "object"
-    },
-    "CryptoAlgorithm": {
-      "description": "Crypto algorithm",
-      "enum": [
-        "base64",
-        "hex",
-        "md5",
-        "sha1",
-        "sha256",
-        "aes",
-        "rsa"
-      ],
-      "type": "string"
-    },
-    "CryptoOperation": {
-      "description": "Crypto operation type",
-      "enum": [
-        "encode",
-        "decode",
-        "hash",
-        "encrypt",
-        "decrypt"
-      ],
-      "type": "string"
-    },
-    "DetailParse": {
-      "description": "Detail parse rules",
-      "properties": {
-        "fields": {
-          "additionalProperties": true,
-          "type": [
-            "object",
-            "null"
-          ]
-        }
-      },
-      "type": "object"
-    },
-    "DiscoverEntry": {
-      "description": "Discovery entry",
-      "properties": {
-        "categories": {
+        "actions": {
+          "description": "流程的核心动作管道。",
           "items": {
-            "$ref": "#/$defs/Category"
+            "$ref": "#/$defs/Step"
           },
+          "type": "array"
+        },
+        "description": {
+          "description": "流程的功能描述。",
           "type": [
-            "array",
+            "string",
             "null"
           ]
         },
-        "entry_url_template": {
-          "type": "string"
+        "entry": {
+          "$ref": "#/$defs/EntryPoint",
+          "description": "流程的入口点定义，通常用于构建初始URL。"
         },
-        "method": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/HttpMethod"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "response_type": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ResponseType"
-            },
-            {
-              "type": "null"
-            }
+        "output_model": {
+          "description": "输出模型类型（可选），指定流程输出的数据格式。\n可选值: \"item_summary\" (列表页), \"item_detail\" (详情页)\n如果未指定，则输出为自由格式的解析结果。",
+          "pattern": "^(item_summary|item_detail)$",
+          "type": [
+            "string",
+            "null"
           ]
         }
       },
       "required": [
-        "entry_url_template"
+        "entry",
+        "actions"
       ],
       "type": "object"
-    },
-    "ErrorAction": {
-      "description": "Error action type",
-      "enum": [
-        "throw",
-        "skip",
-        "default"
-      ],
-      "type": "string"
-    },
-    "ExtractType": {
-      "anyOf": [
-        {
-          "enum": [
-            "text",
-            "html",
-            "attr:href",
-            "attr:src",
-            "attr:data-src",
-            "attr:data-url"
-          ],
-          "type": "string"
-        },
-        {
-          "type": "string"
-        }
-      ],
-      "description": "Selector extract type"
     },
     "HttpConfig": {
-      "description": "HTTP configuration",
+      "additionalProperties": false,
+      "description": "全局HTTP配置 (HttpConfig)\n定义所有网络请求的默认行为。",
       "properties": {
-        "auth": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AuthConfig"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "cookie_script": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/CookieScript"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "cookies": {
-          "additionalProperties": true,
-          "type": [
-            "object",
-            "null"
-          ]
-        },
-        "follow_redirect": {
+        "follow_redirects": {
+          "description": "是否允许重定向。",
           "type": [
             "boolean",
             "null"
           ]
         },
         "headers": {
-          "additionalProperties": true,
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "全局请求头。",
           "type": [
             "object",
             "null"
           ]
         },
-        "interceptor": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/Interceptor"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "max_redirects": {
-          "format": "uint32",
-          "minimum": 0,
-          "type": [
-            "integer",
-            "null"
-          ]
-        },
         "proxy": {
+          "description": "全局代理地址。",
           "type": [
             "string",
             "null"
           ]
         },
-        "rate_limit": {
-          "format": "uint32",
-          "minimum": 0,
-          "type": [
-            "integer",
-            "null"
-          ]
-        },
-        "retry_delay": {
-          "format": "uint32",
-          "minimum": 0,
-          "type": [
-            "integer",
-            "null"
-          ]
-        },
-        "retry_times": {
-          "format": "uint32",
-          "minimum": 0,
-          "type": [
-            "integer",
-            "null"
-          ]
-        },
         "timeout": {
+          "description": "全局请求超时时间（秒）。",
           "format": "uint32",
           "minimum": 0,
           "type": [
@@ -406,6 +343,7 @@
           ]
         },
         "user_agent": {
+          "description": "全局 User-Agent。",
           "type": [
             "string",
             "null"
@@ -415,144 +353,117 @@
       "type": "object"
     },
     "HttpMethod": {
-      "description": "HTTP method enumeration",
-      "enum": [
-        "GET",
-        "POST",
-        "PUT",
-        "DELETE",
-        "PATCH",
-        "HEAD",
-        "OPTIONS"
-      ],
-      "type": "string"
-    },
-    "Interceptor": {
-      "description": "HTTP interceptor configuration",
-      "properties": {
-        "after_response": {
-          "type": [
-            "string",
-            "null"
-          ]
+      "description": "HTTP 请求方法 (HttpMethod)\n用于指定网络请求的 HTTP 方法。",
+      "oneOf": [
+        {
+          "const": "GET",
+          "description": "GET 请求，通常用于获取数据。",
+          "type": "string"
         },
-        "before_request": {
-          "type": [
-            "string",
-            "null"
-          ]
-        }
-      },
-      "type": "object"
-    },
-    "ListParse": {
-      "description": "List parse rules",
-      "properties": {
-        "fields": {
-          "additionalProperties": true,
-          "type": [
-            "object",
-            "null"
-          ]
+        {
+          "const": "POST",
+          "description": "POST 请求，通常用于提交数据。",
+          "type": "string"
         },
-        "item_selector": {
-          "$ref": "#/$defs/Step"
+        {
+          "const": "PUT",
+          "description": "PUT 请求，通常用于更新数据。",
+          "type": "string"
+        },
+        {
+          "const": "DELETE",
+          "description": "DELETE 请求，通常用于删除数据。",
+          "type": "string"
+        },
+        {
+          "const": "HEAD",
+          "description": "HEAD 请求，类似于 GET，但只获取响应头。",
+          "type": "string"
+        },
+        {
+          "const": "OPTIONS",
+          "description": "OPTIONS 请求，获取服务器支持的HTTP方法。",
+          "type": "string"
         }
-      },
-      "required": [
-        "item_selector"
-      ],
-      "type": "object"
+      ]
     },
-    "LoopOperation": {
-      "description": "Loop operation type",
-      "enum": [
-        "foreach",
-        "while",
-        "map"
-      ],
+    "Identifier": {
+      "description": "标识符 (Identifier)\n用于校验变量名、组件名、流程名等。\n必须由字母、数字和下划线组成，且不能以数字开头。",
+      "pattern": "^[a-zA-Z_][a-zA-Z0-9_]*$",
       "type": "string"
     },
     "MediaType": {
-      "description": "Media type enumeration",
-      "enum": [
-        "video",
-        "audio",
-        "book",
-        "manga"
-      ],
-      "type": "string"
+      "description": "用于指定规则适用的媒体内容类型。",
+      "oneOf": [
+        {
+          "const": "video",
+          "description": "视频类型，如电影、电视剧等。",
+          "type": "string"
+        },
+        {
+          "const": "audio",
+          "description": "音频类型，如音乐、播客等。",
+          "type": "string"
+        },
+        {
+          "const": "book",
+          "description": "书籍类型，如电子书、小说等。",
+          "type": "string"
+        },
+        {
+          "const": "manga",
+          "description": "漫画类型，如漫画、图画书等。",
+          "type": "string"
+        }
+      ]
     },
     "Meta": {
-      "description": "Metadata section",
+      "additionalProperties": false,
+      "description": "元数据 (Meta)\n描述规则的基本信息。",
       "properties": {
         "author": {
+          "description": "规则作者。",
           "type": "string"
         },
         "description": {
+          "description": "规则的详细描述。",
           "type": [
             "string",
             "null"
           ]
         },
         "domain": {
+          "description": "目标网站的主域名。",
           "type": "string"
         },
         "encoding": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "homepage": {
+          "description": "目标网站的编码，默认为 \"UTF-8\"。",
           "type": [
             "string",
             "null"
           ]
         },
         "icon_url": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "language": {
+          "description": "数据源的图标URL，用于UI展示。",
           "type": [
             "string",
             "null"
           ]
         },
         "media_type": {
-          "$ref": "#/$defs/MediaType"
-        },
-        "min_spec_version": {
-          "type": [
-            "string",
-            "null"
-          ]
+          "$ref": "#/$defs/MediaType",
+          "description": "规则主要适用的媒体类型。"
         },
         "name": {
+          "description": "规则名称，如“示例影视站”。",
           "type": "string"
-        },
-        "region": {
-          "type": [
-            "string",
-            "null"
-          ]
         },
         "spec_version": {
+          "description": "本规则遵循的规范版本号。",
           "type": "string"
         },
-        "tags": {
-          "items": {
-            "type": "string"
-          },
-          "type": [
-            "array",
-            "null"
-          ]
-        },
         "version": {
+          "description": "规则版本号，建议遵循 SemVer (如 \"1.0.2\")。",
           "type": "string"
         }
       },
@@ -566,175 +477,72 @@
       ],
       "type": "object"
     },
-    "ParseRules": {
-      "description": "Parse rules",
-      "properties": {
-        "detail": {
-          "$ref": "#/$defs/DetailParse"
-        },
-        "list": {
-          "$ref": "#/$defs/ListParse"
-        }
-      },
-      "required": [
-        "list",
-        "detail"
-      ],
-      "type": "object"
-    },
-    "RankingEntry": {
-      "description": "Ranking entry with types and periods",
-      "properties": {
-        "entry_url_template": {
-          "type": "string"
-        },
-        "method": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/HttpMethod"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "periods": {
-          "items": {
-            "$ref": "#/$defs/RankingPeriod"
-          },
-          "type": [
-            "array",
-            "null"
-          ]
-        },
-        "response_type": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ResponseType"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "types": {
-          "items": {
-            "$ref": "#/$defs/RankingType"
-          },
-          "type": [
-            "array",
-            "null"
-          ]
-        }
-      },
-      "required": [
-        "entry_url_template"
-      ],
-      "type": "object"
-    },
-    "RankingPeriod": {
-      "description": "Ranking period definition",
-      "properties": {
-        "id": {
-          "type": "string"
-        },
-        "name": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "name",
-        "id"
-      ],
-      "type": "object"
-    },
-    "RankingType": {
-      "description": "Ranking type definition",
-      "properties": {
-        "id": {
-          "type": "string"
-        },
-        "name": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "name",
-        "id"
-      ],
-      "type": "object"
-    },
-    "RecommendationEntry": {
-      "description": "Recommendation entry",
-      "properties": {
-        "entry_url_template": {
-          "type": "string"
-        },
-        "method": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/HttpMethod"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "response_type": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ResponseType"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        }
-      },
-      "required": [
-        "entry_url_template"
-      ],
-      "type": "object"
-    },
-    "ResponseType": {
-      "description": "Response type enumeration",
-      "enum": [
-        "html",
-        "json",
-        "xml",
-        "text"
-      ],
-      "type": "string"
-    },
     "ScriptEngine": {
-      "description": "Script engine type",
-      "enum": [
-        "rhai",
-        "javascript",
-        "python",
-        "lua"
-      ],
-      "type": "string"
+      "description": "脚本引擎类型 (ScriptEngine)\n用于指定脚本执行环境的类型。",
+      "oneOf": [
+        {
+          "const": "rhai",
+          "description": "Rhai 脚本引擎。",
+          "type": "string"
+        },
+        {
+          "const": "javascript",
+          "description": "JavaScript 脚本引擎。",
+          "type": "string"
+        },
+        {
+          "const": "python",
+          "description": "Python 脚本引擎。",
+          "type": "string"
+        },
+        {
+          "const": "lua",
+          "description": "Lua 脚本引擎。",
+          "type": "string"
+        }
+      ]
     },
     "ScriptModule": {
-      "description": "Script module configuration",
+      "description": "脚本模块 (ScriptModule)\n定义一个脚本文件的来源。",
+      "oneOf": [
+        {
+          "description": "直接内联在规则中的代码。",
+          "properties": {
+            "code": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "code"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "相对于规则文件的脚本路径。",
+          "properties": {
+            "file": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "file"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "远程URL加载的脚本。",
+          "properties": {
+            "url": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "url"
+          ],
+          "type": "object"
+        }
+      ],
       "properties": {
-        "cache_ttl": {
-          "description": "Cache TTL for remote scripts (seconds)",
-          "format": "uint32",
-          "minimum": 0,
-          "type": [
-            "integer",
-            "null"
-          ]
-        },
-        "code": {
-          "description": "Inline script code",
-          "type": [
-            "string",
-            "null"
-          ]
-        },
         "engine": {
           "anyOf": [
             {
@@ -744,221 +552,55 @@
               "type": "null"
             }
           ],
-          "description": "Script engine (overrides global engine if specified)"
-        },
-        "url": {
-          "description": "Remote script URL",
-          "type": [
-            "string",
-            "null"
-          ]
+          "description": "脚本引擎，如果指定，则覆盖全局配置。"
         }
       },
       "type": "object"
     },
     "ScriptingConfig": {
-      "description": "Scripting configuration",
+      "additionalProperties": false,
+      "description": "脚本配置 (ScriptingConfig)\n配置用于执行自定义逻辑的脚本环境。",
       "properties": {
         "engine": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ScriptEngine"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "Default script engine for all modules"
+          "$ref": "#/$defs/ScriptEngine",
+          "description": "默认脚本引擎。"
         },
         "modules": {
-          "additionalProperties": {
-            "$ref": "#/$defs/ScriptModule"
+          "additionalProperties": false,
+          "description": "定义脚本模块，key 为模块名，用于在 `script` 步骤中调用。",
+          "patternProperties": {
+            "^[a-zA-Z_][a-zA-Z0-9_]*$": {
+              "$ref": "#/$defs/ScriptModule"
+            }
           },
-          "description": "Script modules",
-          "type": [
-            "object",
-            "null"
-          ]
-        }
-      },
-      "type": "object"
-    },
-    "SearchEntry": {
-      "description": "Search entry",
-      "properties": {
-        "entry_url_template": {
-          "type": "string"
-        },
-        "method": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/HttpMethod"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "response_type": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ResponseType"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "type": "object"
         }
       },
       "required": [
-        "entry_url_template"
+        "engine",
+        "modules"
       ],
       "type": "object"
     },
     "Step": {
-      "description": "Step type in pipeline",
+      "description": "步骤 (Step)\n管道中的一个原子操作单元。",
       "oneOf": [
         {
+          "additionalProperties": false,
+          "description": "**HTTP请求**: 发起网络请求。",
           "properties": {
-            "extract": {
-              "$ref": "#/$defs/ExtractType"
-            },
-            "index": {
-              "format": "uint",
-              "minimum": 0,
-              "type": [
-                "integer",
-                "null"
-              ]
-            },
-            "query": {
-              "type": "string"
-            },
-            "type": {
-              "const": "selector",
-              "type": "string"
-            }
-          },
-          "required": [
-            "type",
-            "query",
-            "extract"
-          ],
-          "type": "object"
-        },
-        {
-          "properties": {
-            "query": {
-              "type": "string"
-            },
-            "type": {
-              "const": "jsonpath",
-              "type": "string"
-            }
-          },
-          "required": [
-            "type",
-            "query"
-          ],
-          "type": "object"
-        },
-        {
-          "properties": {
-            "group": {
-              "format": "uint",
-              "minimum": 0,
-              "type": [
-                "integer",
-                "null"
-              ]
-            },
-            "query": {
-              "type": "string"
-            },
-            "type": {
-              "const": "regex",
-              "type": "string"
-            }
-          },
-          "required": [
-            "type",
-            "query"
-          ],
-          "type": "object"
-        },
-        {
-          "properties": {
-            "args": true,
-            "call": {
-              "type": "string"
-            },
-            "type": {
-              "const": "script",
-              "type": "string"
-            }
-          },
-          "required": [
-            "type",
-            "call"
-          ],
-          "type": "object"
-        },
-        {
-          "properties": {
-            "delimiter": {
+            "body": {
+              "description": "POST请求体。\n模板字符串，详见顶部规范说明。",
               "type": [
                 "string",
                 "null"
               ]
             },
-            "from": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "operation": {
-              "$ref": "#/$defs/StringOperation"
-            },
-            "prefix": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "suffix": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "template": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "to": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "type": {
-              "const": "string",
-              "type": "string"
-            }
-          },
-          "required": [
-            "type",
-            "operation"
-          ],
-          "type": "object"
-        },
-        {
-          "properties": {
             "headers": {
-              "additionalProperties": true,
+              "additionalProperties": {
+                "type": "string"
+              },
+              "description": "本次请求的自定义头。\n请求头模板字符串，详见顶部规范说明。",
               "type": [
                 "object",
                 "null"
@@ -972,436 +614,334 @@
                 {
                   "type": "null"
                 }
-              ]
+              ],
+              "description": "HTTP方法。"
             },
-            "post_data_template": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "response_type": {
-              "anyOf": [
-                {
-                  "$ref": "#/$defs/ResponseType"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+            "output": {
+              "$ref": "#/$defs/Identifier",
+              "description": "将包含响应体、状态码、头的响应对象存入此变量。"
             },
             "type": {
-              "const": "httprequest",
+              "const": "http_request",
               "type": "string"
             },
-            "url_template": {
+            "url": {
+              "description": "要请求的URL。\n模板字符串，详见顶部规范说明。",
               "type": "string"
             }
           },
           "required": [
             "type",
-            "url_template"
+            "url",
+            "output"
           ],
           "type": "object"
         },
         {
+          "additionalProperties": false,
+          "description": "**CSS选择器**: 从HTML中提取单个元素。",
           "properties": {
-            "condition": {
+            "extract": {
+              "$ref": "#/$defs/ExtractType",
+              "description": "提取方式。"
+            },
+            "input": {
+              "description": "输入的HTML字符串。\n模板字符串，详见顶部规范说明。",
               "type": "string"
             },
-            "if_false": {
-              "items": {
-                "$ref": "#/$defs/Step"
-              },
+            "output": {
+              "$ref": "#/$defs/Identifier",
+              "description": "将提取的结果存入此变量。"
+            },
+            "query": {
+              "description": "CSS选择器表达式。\n模板字符串，详见顶部规范说明。",
+              "type": "string"
+            },
+            "type": {
+              "const": "selector",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "input",
+            "query",
+            "extract",
+            "output"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "**CSS选择器(全部)**: 从HTML中提取所有匹配的元素数组。",
+          "properties": {
+            "extract": {
+              "$ref": "#/$defs/ExtractType",
+              "description": "提取方式。"
+            },
+            "input": {
+              "description": "输入的HTML字符串。\n模板字符串，详见顶部规范说明。",
+              "type": "string"
+            },
+            "output": {
+              "$ref": "#/$defs/Identifier",
+              "description": "将提取的字符串数组存入此变量。"
+            },
+            "query": {
+              "description": "CSS选择器表达式。\n模板字符串，详见顶部规范说明。",
+              "type": "string"
+            },
+            "type": {
+              "const": "selector_all",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "input",
+            "query",
+            "extract",
+            "output"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "**JSONPath**: 从JSON数据中提取信息。",
+          "properties": {
+            "input": {
+              "description": "输入的JSON字符串或对象。\n模板字符串，详见顶部规范说明。",
+              "type": "string"
+            },
+            "output": {
+              "$ref": "#/$defs/Identifier",
+              "description": "将提取结果存入此变量。"
+            },
+            "query": {
+              "description": "JSONPath 查询表达式。\n模板字符串，详见顶部规范说明。",
+              "type": "string"
+            },
+            "type": {
+              "const": "json_path",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "input",
+            "query",
+            "output"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "**执行脚本**: 调用脚本模块中的函数。",
+          "properties": {
+            "call": {
+              "description": "要调用的函数，格式为 `模块名.函数名`。",
+              "pattern": "^[a-zA-Z_][a-zA-Z0-9_]*\\.[a-zA-Z_][a-zA-Z0-9_]*$",
+              "type": "string"
+            },
+            "output": {
+              "$ref": "#/$defs/Identifier",
+              "description": "将函数返回值存入此变量。"
+            },
+            "type": {
+              "const": "script",
+              "type": "string"
+            },
+            "with": {
+              "description": "传递给函数的参数。这是一个动态值，允许在模板中构建复杂的JSON对象。\n模板字符串，详见顶部规范说明。",
               "type": [
-                "array",
+                "string",
                 "null"
               ]
+            }
+          },
+          "required": [
+            "type",
+            "call",
+            "output"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "**调用组件**: 执行一个在 `[components]` 中定义的组件。",
+          "properties": {
+            "component": {
+              "$ref": "#/$defs/Identifier",
+              "description": "要调用的组件名，必须在 `[components]` 中定义。"
             },
-            "if_true": {
+            "output": {
+              "$ref": "#/$defs/Identifier",
+              "description": "将组件的输出（一个包含所有输出变量的Map）存入此变量。"
+            },
+            "type": {
+              "const": "call",
+              "type": "string"
+            },
+            "with": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "description": "传递给组件的输入参数。\n输入参数模板字符串，详见顶部规范说明。",
+              "type": [
+                "object",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "type",
+            "component",
+            "output"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "**字符串操作: 模板**: 使用变量格式化字符串。",
+          "properties": {
+            "output": {
+              "$ref": "#/$defs/Identifier",
+              "description": "输出结果变量名。"
+            },
+            "template": {
+              "description": "模板字符串。",
+              "type": "string"
+            },
+            "type": {
+              "const": "string_template",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "template",
+            "output"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "**设置常量**: 创建一个值为常量的变量。",
+          "properties": {
+            "output": {
+              "$ref": "#/$defs/Identifier",
+              "description": "将此常量存入的变量名。"
+            },
+            "type": {
+              "const": "constant",
+              "type": "string"
+            },
+            "value": {
+              "description": "常量值。"
+            }
+          },
+          "required": [
+            "type",
+            "value",
+            "output"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "**字段映射**: 将解析层字段映射到渲染层标准模型。",
+          "properties": {
+            "input": {
+              "description": "输入数据的变量名或模板字符串。\n模板字符串，详见顶部规范说明。",
+              "type": "string"
+            },
+            "mappings": {
+              "description": "字段映射规则列表。",
+              "items": {
+                "$ref": "#/$defs/FieldMapping"
+              },
+              "type": "array"
+            },
+            "output": {
+              "$ref": "#/$defs/Identifier",
+              "description": "将映射结果存入此变量。"
+            },
+            "target": {
+              "description": "目标模型类型: \"item_summary\" 或 \"item_detail\"",
+              "pattern": "^(item_summary|item_detail)$",
+              "type": "string"
+            },
+            "type": {
+              "const": "map_field",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "input",
+            "target",
+            "mappings",
+            "output"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "**循环: ForEach**: 遍历数组中的每一项并执行子管道。",
+          "properties": {
+            "as": {
+              "$ref": "#/$defs/Identifier",
+              "description": "在循环中，当前项的变量名。"
+            },
+            "input": {
+              "description": "要遍历的数组变量。\n模板字符串，详见顶部规范说明。",
+              "type": "string"
+            },
+            "pipeline": {
+              "description": "对每一项执行的子管道。",
               "items": {
                 "$ref": "#/$defs/Step"
               },
               "type": "array"
             },
             "type": {
-              "const": "conditional",
+              "const": "loop_for_each",
               "type": "string"
             }
           },
           "required": [
             "type",
-            "condition",
-            "if_true"
+            "input",
+            "as",
+            "pipeline"
           ],
           "type": "object"
         },
         {
+          "additionalProperties": false,
+          "description": "**日志输出**: 打印调试信息。",
           "properties": {
-            "condition": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "max_iterations": {
-              "format": "uint",
-              "minimum": 0,
-              "type": [
-                "integer",
-                "null"
-              ]
-            },
-            "operation": {
-              "$ref": "#/$defs/LoopOperation"
-            },
-            "pipeline": {
-              "items": {
-                "$ref": "#/$defs/Step"
-              },
-              "type": [
-                "array",
-                "null"
-              ]
+            "message": {
+              "description": "要打印的消息。\n模板字符串，详见顶部规范说明。",
+              "type": "string"
             },
             "type": {
-              "const": "loop",
+              "const": "log",
               "type": "string"
             }
           },
           "required": [
             "type",
-            "operation"
-          ],
-          "type": "object"
-        },
-        {
-          "properties": {
-            "condition": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "operation": {
-              "$ref": "#/$defs/TransformOperation"
-            },
-            "pipeline": {
-              "items": {
-                "$ref": "#/$defs/Step"
-              },
-              "type": [
-                "array",
-                "null"
-              ]
-            },
-            "type": {
-              "const": "transform",
-              "type": "string"
-            }
-          },
-          "required": [
-            "type",
-            "operation"
-          ],
-          "type": "object"
-        },
-        {
-          "properties": {
-            "default_value": true,
-            "error_action": {
-              "anyOf": [
-                {
-                  "$ref": "#/$defs/ErrorAction"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "rule": {
-              "type": "string"
-            },
-            "type": {
-              "const": "validate",
-              "type": "string"
-            }
-          },
-          "required": [
-            "type",
-            "rule"
-          ],
-          "type": "object"
-        },
-        {
-          "properties": {
-            "default_value": true,
-            "error_action": {
-              "anyOf": [
-                {
-                  "$ref": "#/$defs/ErrorAction"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "format": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "to": {
-              "$ref": "#/$defs/CastType"
-            },
-            "type": {
-              "const": "cast",
-              "type": "string"
-            }
-          },
-          "required": [
-            "type",
-            "to"
-          ],
-          "type": "object"
-        },
-        {
-          "properties": {
-            "algorithm": {
-              "anyOf": [
-                {
-                  "$ref": "#/$defs/CryptoAlgorithm"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "iv": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "key": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "mode": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "operation": {
-              "$ref": "#/$defs/CryptoOperation"
-            },
-            "padding": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "type": {
-              "const": "crypto",
-              "type": "string"
-            }
-          },
-          "required": [
-            "type",
-            "operation"
-          ],
-          "type": "object"
-        },
-        {
-          "properties": {
-            "type": {
-              "const": "constant",
-              "type": "string"
-            },
-            "value": true
-          },
-          "required": [
-            "type",
-            "value"
-          ],
-          "type": "object"
-        },
-        {
-          "properties": {
-            "key": {
-              "type": "string"
-            },
-            "scope": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "ttl": {
-              "format": "uint32",
-              "minimum": 0,
-              "type": [
-                "integer",
-                "null"
-              ]
-            },
-            "type": {
-              "const": "cachekey",
-              "type": "string"
-            }
-          },
-          "required": [
-            "type",
-            "key"
-          ],
-          "type": "object"
-        },
-        {
-          "properties": {
-            "key": {
-              "type": "string"
-            },
-            "scope": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "type": {
-              "const": "cacheretrieve",
-              "type": "string"
-            }
-          },
-          "required": [
-            "type",
-            "key"
-          ],
-          "type": "object"
-        },
-        {
-          "properties": {
-            "key": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "scope": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "type": {
-              "const": "cacheclear",
-              "type": "string"
-            }
-          },
-          "required": [
-            "type"
-          ],
-          "type": "object"
-        },
-        {
-          "properties": {
-            "action": {
-              "anyOf": [
-                {
-                  "$ref": "#/$defs/WebViewAction"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "extract": {
-              "anyOf": [
-                {
-                  "$ref": "#/$defs/WebViewExtract"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "timeout": {
-              "format": "uint32",
-              "minimum": 0,
-              "type": [
-                "integer",
-                "null"
-              ]
-            },
-            "type": {
-              "const": "webview",
-              "type": "string"
-            },
-            "url": {
-              "type": "string"
-            },
-            "wait_for": {
-              "type": [
-                "string",
-                "null"
-              ]
-            }
-          },
-          "required": [
-            "type",
-            "url"
+            "message"
           ],
           "type": "object"
         }
       ]
-    },
-    "StringOperation": {
-      "description": "String operation type",
-      "enum": [
-        "prepend",
-        "append",
-        "replace",
-        "split",
-        "trim",
-        "template"
-      ],
-      "type": "string"
-    },
-    "TransformOperation": {
-      "description": "Transform operation type",
-      "enum": [
-        "map",
-        "filter",
-        "flatten",
-        "first",
-        "last",
-        "unique"
-      ],
-      "type": "string"
-    },
-    "WebViewAction": {
-      "description": "WebView action type",
-      "enum": [
-        "wait",
-        "login"
-      ],
-      "type": "string"
-    },
-    "WebViewExtract": {
-      "description": "WebView extract type",
-      "enum": [
-        "cookies",
-        "html",
-        "storage"
-      ],
-      "type": "string"
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "description": "Root rule file structure",
+  "additionalProperties": false,
+  "description": "规则文件根结构\n这是单个 `.toml | .json` 规则文件的最高层级定义。",
   "properties": {
     "cache": {
       "anyOf": [
@@ -1411,17 +951,28 @@
         {
           "type": "null"
         }
-      ]
+      ],
+      "description": "缓存的全局配置。"
     },
-    "discover": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/DiscoverEntry"
-        },
-        {
-          "type": "null"
+    "components": {
+      "additionalProperties": false,
+      "description": "定义可在此规则中复用的“组件”或“函数”。",
+      "patternProperties": {
+        "^[a-zA-Z_][a-zA-Z0-9_]*$": {
+          "$ref": "#/$defs/Component"
         }
-      ]
+      },
+      "type": "object"
+    },
+    "flows": {
+      "additionalProperties": false,
+      "description": "定义此规则支持的所有可执行流程。",
+      "patternProperties": {
+        "^[a-zA-Z_][a-zA-Z0-9_]*$": {
+          "$ref": "#/$defs/Flow"
+        }
+      },
+      "type": "object"
     },
     "http": {
       "anyOf": [
@@ -1431,33 +982,12 @@
         {
           "type": "null"
         }
-      ]
+      ],
+      "description": "全局的网络请求配置，可被流程局部配置覆盖。"
     },
     "meta": {
-      "$ref": "#/$defs/Meta"
-    },
-    "parse": {
-      "$ref": "#/$defs/ParseRules"
-    },
-    "ranking": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/RankingEntry"
-        },
-        {
-          "type": "null"
-        }
-      ]
-    },
-    "recommendation": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/RecommendationEntry"
-        },
-        {
-          "type": "null"
-        }
-      ]
+      "$ref": "#/$defs/Meta",
+      "description": "规则的元数据，用于在软件中识别和展示。"
     },
     "scripting": {
       "anyOf": [
@@ -1467,22 +997,14 @@
         {
           "type": "null"
         }
-      ]
-    },
-    "search": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/SearchEntry"
-        },
-        {
-          "type": "null"
-        }
-      ]
+      ],
+      "description": "脚本引擎的全局配置。"
     }
   },
   "required": [
     "meta",
-    "parse"
+    "components",
+    "flows"
   ],
   "title": "RuleFile",
   "type": "object"

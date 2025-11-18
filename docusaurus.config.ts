@@ -95,7 +95,7 @@ const config: Config = {
           position: 'right',
         },
         {
-          href: 'https://github.com/Wuhy5/ying-ju',
+          href: 'https://github.com/Wuhy5/ying-ju-crawler-docs',
           label: 'GitHub',
           position: 'right',
         },
@@ -113,7 +113,7 @@ const config: Config = {
             },
             {
               label: '核心概念',
-              to: '/docs/core-concepts',
+              to: '/docs/core/concepts',
             },
           ],
         },
@@ -122,7 +122,7 @@ const config: Config = {
           items: [
             {
               label: 'GitHub',
-              href: 'https://github.com/Wuhy5/ying-ju',
+              href: 'https://github.com/Wuhy5/ying-ju-crawler-docs',
             },
           ],
         },

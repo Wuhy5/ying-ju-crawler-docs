@@ -222,9 +222,9 @@ fn measure_time(start: i64, end: i64) -> map {
 
 ## 相关文档
 
-- **[核心概念](../../core/concepts.md)** - 了解基础概念
-- **[规则文件结构](../../core/rule-file.md)** - 掌握文件组织
-- **[流水线系统](../../spec/pipeline.md)** - 深入理解执行流程
-- **[字段映射](../../spec/field-mapping.md)** - 学习数据转换
-- **[缓存配置](../../config/cache.md)** - 缓存系统详解
-- **[脚本配置](../../config/scripting.md)** - 自定义逻辑编写
+- **[核心概念](/docs/core/concepts.md)** - 了解基础概念
+- **[规则文件结构](/docs/core/rule-file.md)** - 掌握文件组织
+- **[流水线系统](/docs/spec/pipeline.md)** - 深入理解执行流程
+- **[字段映射](/docs/spec/field-mapping.md)** - 学习数据转换
+- **[缓存配置](/docs/config/cache.md)** - 缓存系统详解
+- **[脚本配置](/docs/config/scripting.md)** - 自定义逻辑编写

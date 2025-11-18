@@ -17,7 +17,8 @@ Schema 通过 Rust 代码自动生成：
 
 ```bash
 # 在 ying-ju-crawler-schema 目录中执行
-cd ../ying-ju-crawler-schema
+# 克隆仓库: https://github.com/Wuhy5/ying-ju-crawler-schema
+cd ying-ju-crawler-schema
 cargo run --bin generate_schema
 ```
 
@@ -428,8 +429,8 @@ if let Err(errors) = result {
 
 ## 相关文档
 
-- **[核心概念](../../core/concepts.md)** - 理解规范基础
-- **[规则文件结构](../../core/rule-file.md)** - 文件组织方式
-- **[流水线系统](../../spec/pipeline.md)** - 步骤类型详解
-- **[字段映射](../../spec/field-mapping.md)** - 数据转换规范
-- **[媒体类型](../../spec/media-types.md)** - 媒体数据模型
+- **[核心概念](/docs/core/concepts.md)** - 理解规范基础
+- **[规则文件结构](/docs/core/rule-file.md)** - 文件组织方式
+- **[流水线系统](/docs/spec/pipeline.md)** - 步骤类型详解
+- **[字段映射](/docs/spec/field-mapping.md)** - 数据转换规范
+- **[媒体类型](/docs/spec/media-types.md)** - 媒体数据模型

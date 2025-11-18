@@ -143,9 +143,9 @@ GIT_USER=<Your GitHub username> bun run deploy
 
 ## 许可证
 
-本项目采用 MIT 许可证 - 查看 [LICENSE](../LICENSE) 文件了解详情。
+本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
 
 ## 相关项目
 
-- [ying-ju-app](../ying-ju-app/) - 爬虫应用主程序
-- [ying-ju-crawler-schema](../ying-ju-crawler-schema/) - 规范验证工具
+- [ying-ju-app](https://github.com/Wuhy5/ying-ju-app) - 爬虫应用主程序
+- [ying-ju-crawler-schema](https://github.com/Wuhy5/ying-ju-crawler-schema) - 规范的 JSON Schema 定义

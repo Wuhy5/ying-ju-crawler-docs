@@ -1,41 +1,20 @@
 {
   "$comment": "Schema version: 1.0.0",
   "$defs": {
-    "CacheBackend": {
-      "description": "缓存后端 (CacheBackend)\n用于指定缓存存储的后端类型。",
+    "CacheScope": {
+      "description": "缓存作用域 (CacheScope)\n用于指定缓存数据的生命周期范围。",
       "oneOf": [
         {
-          "const": "memory",
-          "description": "内存缓存，适合临时数据存储。",
+          "const": "flow",
+          "description": "流程级缓存，在单个流程执行期间有效（默认）。",
           "type": "string"
         },
         {
-          "const": "sqlite",
-          "description": "SQLite 数据库存储，适合持久化缓存。",
+          "const": "rule",
+          "description": "规则级缓存，在整个规则生命周期内有效，规则删除时缓存也删除。",
           "type": "string"
         }
       ]
-    },
-    "CacheConfig": {
-      "additionalProperties": false,
-      "description": "缓存配置 (CacheConfig)\n定义规则的缓存策略。",
-      "properties": {
-        "backend": {
-          "$ref": "#/$defs/CacheBackend",
-          "description": "缓存后端类型。"
-        },
-        "default_ttl": {
-          "description": "默认的缓存过期时间（秒）。",
-          "format": "uint32",
-          "minimum": 0,
-          "type": "integer"
-        }
-      },
-      "required": [
-        "backend",
-        "default_ttl"
-      ],
-      "type": "object"
     },
     "Component": {
       "additionalProperties": false,
@@ -49,11 +28,8 @@
           ]
         },
         "inputs": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "description": "定义组件接收的输入参数 (key: 参数名, value: 默认值)。",
-          "patternProperties": {
-            "^[a-zA-Z_][a-zA-Z0-9_]*$": true
-          },
           "type": "object"
         },
         "pipeline": {
@@ -70,85 +46,90 @@
       ],
       "type": "object"
     },
-    "EntryPoint": {
-      "description": "定义流程的起始方式，取代了原有的 `flow_type` 字符串。",
+    "CredentialField": {
+      "additionalProperties": false,
+      "description": "凭证字段定义",
+      "properties": {
+        "field_type": {
+          "$ref": "#/$defs/CredentialFieldType",
+          "default": "text",
+          "description": "字段类型"
+        },
+        "key": {
+          "$ref": "#/$defs/Identifier",
+          "description": "字段标识符"
+        },
+        "label": {
+          "description": "字段显示名称",
+          "type": "string"
+        },
+        "placeholder": {
+          "description": "占位符文本",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "required": {
+          "default": true,
+          "description": "是否必填",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "key",
+        "label"
+      ],
+      "type": "object"
+    },
+    "CredentialFieldType": {
+      "description": "凭证字段类型",
       "oneOf": [
         {
-          "additionalProperties": false,
-          "description": "**发现/浏览类型**: 用于需要复杂分类和筛选条件的场景。",
-          "properties": {
-            "discover": {
-              "properties": {
-                "filters": {
-                  "description": "定义此发现页面的所有筛选器组，UI将根据此结构动态生成筛选面板。",
-                  "items": {
-                    "$ref": "#/$defs/FilterGroup"
-                  },
-                  "type": "array"
-                },
-                "url": {
-                  "description": "URL模板。占位符的名称应与 `filters` 中定义的 `key` 相对应。\n例如: `\"/list/{{cate_id}}-{{area}}-{{year}}.html?sort_by={{sort}}\"`",
-                  "type": "string"
-                }
-              },
-              "required": [
-                "url",
-                "filters"
-              ],
-              "type": "object"
-            }
-          },
-          "required": [
-            "discover"
-          ],
-          "type": "object"
+          "const": "text",
+          "description": "普通文本",
+          "type": "string"
         },
         {
-          "additionalProperties": false,
-          "description": "**搜索类型**: 用于简单的关键词搜索场景。",
-          "properties": {
-            "search": {
-              "properties": {
-                "url": {
-                  "description": "URL模板，必须包含 `{{keyword}}` 占位符。",
-                  "type": "string"
-                }
-              },
-              "required": [
-                "url"
-              ],
-              "type": "object"
-            }
-          },
-          "required": [
-            "search"
-          ],
-          "type": "object"
+          "const": "password",
+          "description": "密码（隐藏显示）",
+          "type": "string"
         },
         {
-          "additionalProperties": false,
-          "description": "**通用类型**: 用于没有特定UI入口的流程，如“登录”、“签到”等。",
-          "properties": {
-            "general": {
-              "properties": {
-                "url": {
-                  "description": "一个固定的或简单的模板URL。",
-                  "type": "string"
-                }
-              },
-              "required": [
-                "url"
-              ],
-              "type": "object"
-            }
-          },
-          "required": [
-            "general"
-          ],
-          "type": "object"
+          "const": "email",
+          "description": "邮箱",
+          "type": "string"
+        },
+        {
+          "const": "textarea",
+          "description": "多行文本（如Cookie）",
+          "type": "string"
         }
+      ]
+    },
+    "DetailFlow": {
+      "additionalProperties": false,
+      "description": "详情页流程 (DetailFlow)\n处理单个内容项的详细信息",
+      "properties": {
+        "description": {
+          "description": "流程的功能描述",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "pipeline": {
+          "description": "详情页处理管道",
+          "items": {
+            "$ref": "#/$defs/Step"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "pipeline"
       ],
-      "title": "入口点 (EntryPoint)"
+      "type": "object"
     },
     "ExtractType": {
       "anyOf": [
@@ -180,6 +161,31 @@
         {
           "const": "attr:data-src",
           "description": "提取 `data-src` 属性",
+          "type": "string"
+        },
+        {
+          "const": "attr:alt",
+          "description": "提取 `alt` 属性",
+          "type": "string"
+        },
+        {
+          "const": "attr:title",
+          "description": "提取 `title` 属性",
+          "type": "string"
+        },
+        {
+          "const": "attr:class",
+          "description": "提取 `class` 属性",
+          "type": "string"
+        },
+        {
+          "const": "attr:id",
+          "description": "提取 `id` 属性",
+          "type": "string"
+        },
+        {
+          "const": "attr:value",
+          "description": "提取 `value` 属性",
           "type": "string"
         },
         {
@@ -217,7 +223,7 @@
     },
     "FilterGroup": {
       "additionalProperties": false,
-      "description": "代表UI上一组相关的筛选选项，如“地区”、“年份”。",
+      "description": "代表UI上一组相关的筛选选项，如\"地区\"、\"年份\"。",
       "properties": {
         "key": {
           "$ref": "#/$defs/Identifier",
@@ -250,7 +256,7 @@
     },
     "FilterOption": {
       "additionalProperties": false,
-      "description": "代表一个具体的筛选选项，如“电影”或“2023年”。",
+      "description": "代表一个具体的筛选选项，如\"电影\"或\"2023年\"。",
       "properties": {
         "name": {
           "description": "选项的显示名称，如 \"美国\"。",
@@ -268,47 +274,19 @@
       "title": "筛选器选项 (FilterOption)",
       "type": "object"
     },
-    "Flow": {
-      "additionalProperties": false,
-      "description": "流程 (Flow)\n定义一个完整的、可独立执行的任务,如\"搜索\"、\"发现\"或\"登录\"。",
-      "properties": {
-        "actions": {
-          "description": "流程的核心动作管道。",
-          "items": {
-            "$ref": "#/$defs/Step"
-          },
-          "type": "array"
-        },
-        "description": {
-          "description": "流程的功能描述。",
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "entry": {
-          "$ref": "#/$defs/EntryPoint",
-          "description": "流程的入口点定义，通常用于构建初始URL。"
-        },
-        "output_model": {
-          "description": "输出模型类型（可选），指定流程输出的数据格式。\n可选值: \"item_summary\" (列表页), \"item_detail\" (详情页)\n如果未指定，则输出为自由格式的解析结果。",
-          "pattern": "^(item_summary|item_detail)$",
-          "type": [
-            "string",
-            "null"
-          ]
-        }
-      },
-      "required": [
-        "entry",
-        "actions"
-      ],
-      "type": "object"
-    },
     "HttpConfig": {
       "additionalProperties": false,
       "description": "全局HTTP配置 (HttpConfig)\n定义所有网络请求的默认行为。",
       "properties": {
+        "connect_timeout": {
+          "description": "连接超时时间（秒）。",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
         "follow_redirects": {
           "description": "是否允许重定向。",
           "type": [
@@ -326,10 +304,55 @@
             "null"
           ]
         },
+        "max_concurrent": {
+          "description": "最大并发请求数。",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "max_redirects": {
+          "description": "最大重定向次数。",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
         "proxy": {
           "description": "全局代理地址。",
           "type": [
             "string",
+            "null"
+          ]
+        },
+        "request_delay": {
+          "description": "请求间隔时间（毫秒），用于限流。",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "retry_count": {
+          "description": "重试次数。",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "retry_delay": {
+          "description": "重试间隔（毫秒）。",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
             "null"
           ]
         },
@@ -346,6 +369,13 @@
           "description": "全局 User-Agent。",
           "type": [
             "string",
+            "null"
+          ]
+        },
+        "verify_ssl": {
+          "description": "是否验证SSL证书。",
+          "type": [
+            "boolean",
             "null"
           ]
         }
@@ -384,13 +414,141 @@
           "const": "OPTIONS",
           "description": "OPTIONS 请求，获取服务器支持的HTTP方法。",
           "type": "string"
+        },
+        {
+          "const": "PATCH",
+          "description": "PATCH 请求，用于部分更新数据。",
+          "type": "string"
         }
       ]
     },
     "Identifier": {
       "description": "标识符 (Identifier)\n用于校验变量名、组件名、流程名等。\n必须由字母、数字和下划线组成，且不能以数字开头。",
-      "pattern": "^[a-zA-Z_][a-zA-Z0-9_]*$",
       "type": "string"
+    },
+    "ListFlow": {
+      "additionalProperties": false,
+      "description": "列表页流程 (ListFlow)\n用于发现和浏览内容列表",
+      "properties": {
+        "description": {
+          "description": "流程的功能描述",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "filters": {
+          "description": "筛选器配置",
+          "items": {
+            "$ref": "#/$defs/FilterGroup"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "pagination": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PaginationConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "分页配置"
+        },
+        "pipeline": {
+          "description": "列表页处理管道",
+          "items": {
+            "$ref": "#/$defs/Step"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "pipeline"
+      ],
+      "type": "object"
+    },
+    "LoginFlow": {
+      "additionalProperties": false,
+      "description": "登录流程 (LoginFlow)\n处理网站的身份验证，支持多种认证方式",
+      "properties": {
+        "check_login": {
+          "description": "登录验证：检查是否已登录的管道",
+          "items": {
+            "$ref": "#/$defs/Step"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "credentials": {
+          "description": "登录所需的凭证字段定义",
+          "items": {
+            "$ref": "#/$defs/CredentialField"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "description": {
+          "description": "流程的功能描述",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "login_type": {
+          "$ref": "#/$defs/LoginType",
+          "default": "password",
+          "description": "登录类型"
+        },
+        "pipeline": {
+          "description": "登录动作管道",
+          "items": {
+            "$ref": "#/$defs/Step"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "pipeline"
+      ],
+      "type": "object"
+    },
+    "LoginType": {
+      "description": "登录类型",
+      "oneOf": [
+        {
+          "const": "password",
+          "description": "用户名密码登录",
+          "type": "string"
+        },
+        {
+          "const": "cookie",
+          "description": "Cookie登录",
+          "type": "string"
+        },
+        {
+          "const": "token",
+          "description": "Token登录",
+          "type": "string"
+        },
+        {
+          "const": "o_auth",
+          "description": "OAuth登录",
+          "type": "string"
+        },
+        {
+          "const": "captcha",
+          "description": "验证码登录",
+          "type": "string"
+        }
+      ]
     },
     "MediaType": {
       "description": "用于指定规则适用的媒体内容类型。",
@@ -477,12 +635,155 @@
       ],
       "type": "object"
     },
+    "PaginationConfig": {
+      "additionalProperties": false,
+      "description": "分页配置",
+      "properties": {
+        "max_pages": {
+          "description": "最大页数限制",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "page_param": {
+          "$ref": "#/$defs/Identifier",
+          "default": "page",
+          "description": "页码参数名"
+        },
+        "page_size": {
+          "description": "每页数量（如果适用）",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "pagination_type": {
+          "$ref": "#/$defs/PaginationType",
+          "default": "page_number",
+          "description": "分页类型"
+        },
+        "start_page": {
+          "default": 1,
+          "description": "起始页码",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "PaginationType": {
+      "description": "分页类型",
+      "oneOf": [
+        {
+          "const": "page_number",
+          "description": "页码分页",
+          "type": "string"
+        },
+        {
+          "const": "offset",
+          "description": "偏移量分页",
+          "type": "string"
+        },
+        {
+          "const": "cursor",
+          "description": "游标分页",
+          "type": "string"
+        },
+        {
+          "const": "load_more",
+          "description": "加载更多（无限滚动）",
+          "type": "string"
+        }
+      ]
+    },
+    "RuntimeLimits": {
+      "additionalProperties": false,
+      "description": "运行时限制配置\n用于限制规则执行时的资源使用",
+      "properties": {
+        "execution_timeout_ms": {
+          "default": 30000,
+          "description": "整体执行超时时间（毫秒）",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "max_concurrent_requests": {
+          "description": "最大并发请求数",
+          "format": "uint",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "max_http_requests": {
+          "description": "最大HTTP请求数",
+          "format": "uint",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "max_loop_iterations": {
+          "default": 10000,
+          "description": "单次循环的最大迭代次数",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "max_pipeline_length": {
+          "default": 100,
+          "description": "单个管道的最大步骤数",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "max_recursion_depth": {
+          "default": 10,
+          "description": "组件调用的最大递归深度",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "max_response_size": {
+          "description": "最大响应体大小（字节）",
+          "format": "uint",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "max_string_length": {
+          "default": 10485760,
+          "description": "单个字符串的最大长度（字节）",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "max_variables": {
+          "default": 1000,
+          "description": "变量上下文中的最大变量数量",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
     "ScriptEngine": {
       "description": "脚本引擎类型 (ScriptEngine)\n用于指定脚本执行环境的类型。",
       "oneOf": [
         {
           "const": "rhai",
-          "description": "Rhai 脚本引擎。",
+          "description": "Rhai 脚本引擎（默认）。",
           "type": "string"
         },
         {
@@ -566,19 +867,61 @@
           "description": "默认脚本引擎。"
         },
         "modules": {
-          "additionalProperties": false,
-          "description": "定义脚本模块，key 为模块名，用于在 `script` 步骤中调用。",
-          "patternProperties": {
-            "^[a-zA-Z_][a-zA-Z0-9_]*$": {
-              "$ref": "#/$defs/ScriptModule"
-            }
+          "additionalProperties": {
+            "$ref": "#/$defs/ScriptModule"
           },
+          "description": "定义脚本模块，key 为模块名，用于在 `script` 步骤中调用。",
           "type": "object"
         }
       },
       "required": [
         "engine",
         "modules"
+      ],
+      "type": "object"
+    },
+    "SearchFlow": {
+      "additionalProperties": false,
+      "description": "搜索流程 (SearchFlow)\n处理搜索功能",
+      "properties": {
+        "description": {
+          "description": "流程的功能描述",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "filters": {
+          "description": "搜索筛选器",
+          "items": {
+            "$ref": "#/$defs/FilterGroup"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "pagination": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PaginationConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "分页配置"
+        },
+        "pipeline": {
+          "description": "搜索处理管道",
+          "items": {
+            "$ref": "#/$defs/Step"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "pipeline"
       ],
       "type": "object"
     },
@@ -590,15 +933,19 @@
           "description": "**HTTP请求**: 发起网络请求。",
           "properties": {
             "body": {
-              "description": "POST请求体。\n模板字符串，详见顶部规范说明。",
-              "type": [
-                "string",
-                "null"
-              ]
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Template"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "POST请求体。\n模板字符串，详见顶部规范说明。"
             },
             "headers": {
               "additionalProperties": {
-                "type": "string"
+                "$ref": "#/$defs/Template"
               },
               "description": "本次请求的自定义头。\n请求头模板字符串，详见顶部规范说明。",
               "type": [
@@ -626,8 +973,8 @@
               "type": "string"
             },
             "url": {
-              "description": "要请求的URL。\n模板字符串，详见顶部规范说明。",
-              "type": "string"
+              "$ref": "#/$defs/Template",
+              "description": "要请求的URL。\n模板字符串，详见顶部规范说明。"
             }
           },
           "required": [
@@ -646,16 +993,16 @@
               "description": "提取方式。"
             },
             "input": {
-              "description": "输入的HTML字符串。\n模板字符串，详见顶部规范说明。",
-              "type": "string"
+              "$ref": "#/$defs/Template",
+              "description": "输入的HTML字符串。\n模板字符串，详见顶部规范说明。"
             },
             "output": {
               "$ref": "#/$defs/Identifier",
               "description": "将提取的结果存入此变量。"
             },
             "query": {
-              "description": "CSS选择器表达式。\n模板字符串，详见顶部规范说明。",
-              "type": "string"
+              "$ref": "#/$defs/Template",
+              "description": "CSS选择器表达式。\n模板字符串，详见顶部规范说明。"
             },
             "type": {
               "const": "selector",
@@ -680,16 +1027,16 @@
               "description": "提取方式。"
             },
             "input": {
-              "description": "输入的HTML字符串。\n模板字符串，详见顶部规范说明。",
-              "type": "string"
+              "$ref": "#/$defs/Template",
+              "description": "输入的HTML字符串。\n模板字符串，详见顶部规范说明。"
             },
             "output": {
               "$ref": "#/$defs/Identifier",
               "description": "将提取的字符串数组存入此变量。"
             },
             "query": {
-              "description": "CSS选择器表达式。\n模板字符串，详见顶部规范说明。",
-              "type": "string"
+              "$ref": "#/$defs/Template",
+              "description": "CSS选择器表达式。\n模板字符串，详见顶部规范说明。"
             },
             "type": {
               "const": "selector_all",
@@ -710,16 +1057,16 @@
           "description": "**JSONPath**: 从JSON数据中提取信息。",
           "properties": {
             "input": {
-              "description": "输入的JSON字符串或对象。\n模板字符串，详见顶部规范说明。",
-              "type": "string"
+              "$ref": "#/$defs/Template",
+              "description": "输入的JSON字符串或对象。\n模板字符串，详见顶部规范说明。"
             },
             "output": {
               "$ref": "#/$defs/Identifier",
               "description": "将提取结果存入此变量。"
             },
             "query": {
-              "description": "JSONPath 查询表达式。\n模板字符串，详见顶部规范说明。",
-              "type": "string"
+              "$ref": "#/$defs/Template",
+              "description": "JSONPath 查询表达式。\n模板字符串，详见顶部规范说明。"
             },
             "type": {
               "const": "json_path",
@@ -752,11 +1099,15 @@
               "type": "string"
             },
             "with": {
-              "description": "传递给函数的参数。这是一个动态值，允许在模板中构建复杂的JSON对象。\n模板字符串，详见顶部规范说明。",
-              "type": [
-                "string",
-                "null"
-              ]
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Template"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "传递给函数的参数。这是一个动态值，允许在模板中构建复杂的JSON对象。\n模板字符串，详见顶部规范说明。"
             }
           },
           "required": [
@@ -784,7 +1135,7 @@
             },
             "with": {
               "additionalProperties": {
-                "type": "string"
+                "$ref": "#/$defs/Template"
               },
               "description": "传递给组件的输入参数。\n输入参数模板字符串，详见顶部规范说明。",
               "type": [
@@ -809,8 +1160,8 @@
               "description": "输出结果变量名。"
             },
             "template": {
-              "description": "模板字符串。",
-              "type": "string"
+              "$ref": "#/$defs/Template",
+              "description": "模板字符串。"
             },
             "type": {
               "const": "string_template",
@@ -852,8 +1203,8 @@
           "description": "**字段映射**: 将解析层字段映射到渲染层标准模型。",
           "properties": {
             "input": {
-              "description": "输入数据的变量名或模板字符串。\n模板字符串，详见顶部规范说明。",
-              "type": "string"
+              "$ref": "#/$defs/Template",
+              "description": "输入数据的变量名或模板字符串。\n模板字符串，详见顶部规范说明。"
             },
             "mappings": {
               "description": "字段映射规则列表。",
@@ -887,6 +1238,85 @@
         },
         {
           "additionalProperties": false,
+          "description": "**缓存获取**: 从缓存中获取值。",
+          "properties": {
+            "key": {
+              "$ref": "#/$defs/Template",
+              "description": "缓存键。\n模板字符串，详见顶部规范说明。"
+            },
+            "output": {
+              "$ref": "#/$defs/Identifier",
+              "description": "将获取的值存入此变量。"
+            },
+            "scope": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/CacheScope"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "缓存作用域。"
+            },
+            "type": {
+              "const": "cache_get",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "key",
+            "output"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "**缓存设置**: 将值存入缓存。",
+          "properties": {
+            "key": {
+              "$ref": "#/$defs/Template",
+              "description": "缓存键。\n模板字符串，详见顶部规范说明。"
+            },
+            "scope": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/CacheScope"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "缓存作用域。"
+            },
+            "ttl": {
+              "description": "过期时间（秒）。",
+              "format": "uint32",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "type": {
+              "const": "cache_set",
+              "type": "string"
+            },
+            "value": {
+              "$ref": "#/$defs/Template",
+              "description": "要缓存的值。\n模板字符串，详见顶部规范说明。"
+            }
+          },
+          "required": [
+            "type",
+            "key",
+            "value"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
           "description": "**循环: ForEach**: 遍历数组中的每一项并执行子管道。",
           "properties": {
             "as": {
@@ -894,8 +1324,8 @@
               "description": "在循环中，当前项的变量名。"
             },
             "input": {
-              "description": "要遍历的数组变量。\n模板字符串，详见顶部规范说明。",
-              "type": "string"
+              "$ref": "#/$defs/Template",
+              "description": "要遍历的数组变量。\n模板字符串，详见顶部规范说明。"
             },
             "pipeline": {
               "description": "对每一项执行的子管道。",
@@ -922,8 +1352,8 @@
           "description": "**日志输出**: 打印调试信息。",
           "properties": {
             "message": {
-              "description": "要打印的消息。\n模板字符串，详见顶部规范说明。",
-              "type": "string"
+              "$ref": "#/$defs/Template",
+              "description": "要打印的消息。\n模板字符串，详见顶部规范说明。"
             },
             "type": {
               "const": "log",
@@ -937,42 +1367,27 @@
           "type": "object"
         }
       ]
+    },
+    "Template": {
+      "description": "模板字符串 (Template)\n\n支持 Tera 模板语法的字符串类型，用于在运行时进行变量插值。\n\n## 语法规范\n- 变量插值: `{{ variable }}`\n- 嵌套访问: `{{ user.name }}`, `{{ items[0] }}`\n- 过滤器: `{{ name | upper }}`\n- 条件: `{% if condition %}...{% endif %}`\n- 循环: `{% for item in items %}...{% endfor %}`\n\n## 示例\n```text\nhttps://example.com/search?q={{ keyword }}\nHello, {{ user.name }}!\n{{ items[0].title }}\n```",
+      "pattern": "{{\\s*([a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*|\\[[0-9]+\\])*)\\s*}}",
+      "type": "string"
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "规则文件根结构\n这是单个 `.toml | .json` 规则文件的最高层级定义。",
+  "description": "影视软件爬虫规则 (CrawlerRule)",
   "properties": {
-    "cache": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/CacheConfig"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "description": "缓存的全局配置。"
-    },
     "components": {
-      "additionalProperties": false,
-      "description": "定义可在此规则中复用的“组件”或“函数”。",
-      "patternProperties": {
-        "^[a-zA-Z_][a-zA-Z0-9_]*$": {
-          "$ref": "#/$defs/Component"
-        }
+      "additionalProperties": {
+        "$ref": "#/$defs/Component"
       },
+      "description": "定义可在此规则中复用的\"组件\"或\"函数\"。",
       "type": "object"
     },
-    "flows": {
-      "additionalProperties": false,
-      "description": "定义此规则支持的所有可执行流程。",
-      "patternProperties": {
-        "^[a-zA-Z_][a-zA-Z0-9_]*$": {
-          "$ref": "#/$defs/Flow"
-        }
-      },
-      "type": "object"
+    "detail": {
+      "$ref": "#/$defs/DetailFlow",
+      "description": "详情页流程（必需）"
     },
     "http": {
       "anyOf": [
@@ -984,6 +1399,39 @@
         }
       ],
       "description": "全局的网络请求配置，可被流程局部配置覆盖。"
+    },
+    "limits": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/RuntimeLimits"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "运行时资源限制配置。"
+    },
+    "list": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ListFlow"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "列表页流程（可选）"
+    },
+    "login": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/LoginFlow"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "登录流程（可选）"
     },
     "meta": {
       "$ref": "#/$defs/Meta",
@@ -999,13 +1447,18 @@
         }
       ],
       "description": "脚本引擎的全局配置。"
+    },
+    "search": {
+      "$ref": "#/$defs/SearchFlow",
+      "description": "搜索流程（必需）"
     }
   },
   "required": [
     "meta",
     "components",
-    "flows"
+    "detail",
+    "search"
   ],
-  "title": "RuleFile",
+  "title": "CrawlerRule",
   "type": "object"
 }

@@ -1,79 +1,24 @@
 {
   "$comment": "Schema version: 1.0.0",
   "$defs": {
-    "CacheScope": {
-      "description": "缓存作用域 (CacheScope)\n用于指定缓存数据的生命周期范围。",
-      "oneOf": [
-        {
-          "const": "flow",
-          "description": "流程级缓存，在单个流程执行期间有效（默认）。",
-          "type": "string"
-        },
-        {
-          "const": "rule",
-          "description": "规则级缓存，在整个规则生命周期内有效，规则删除时缓存也删除。",
-          "type": "string"
-        }
-      ]
-    },
-    "Component": {
+    "CategoryFields": {
       "additionalProperties": false,
-      "description": "可重用组件 (Component)\n一个可被其他管道调用的、封装了特定逻辑的子管道。",
+      "description": "分类字段定义",
       "properties": {
-        "description": {
-          "description": "组件的功能描述。",
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "inputs": {
-          "additionalProperties": true,
-          "description": "定义组件接收的输入参数 (key: 参数名, value: 默认值)。",
-          "type": "object"
-        },
-        "pipeline": {
-          "description": "组件的核心处理管道。",
-          "items": {
-            "$ref": "#/$defs/Step"
-          },
-          "type": "array"
-        }
-      },
-      "required": [
-        "inputs",
-        "pipeline"
-      ],
-      "type": "object"
-    },
-    "CredentialField": {
-      "additionalProperties": false,
-      "description": "凭证字段定义",
-      "properties": {
-        "field_type": {
-          "$ref": "#/$defs/CredentialFieldType",
-          "default": "text",
-          "description": "字段类型"
-        },
         "key": {
-          "$ref": "#/$defs/Identifier",
-          "description": "字段标识符"
+          "description": "分类标识提取规则",
+          "type": "string"
         },
         "label": {
-          "description": "字段显示名称",
+          "description": "分类名称提取规则",
           "type": "string"
         },
-        "placeholder": {
-          "description": "占位符文本",
+        "value": {
+          "description": "分类值提取规则（可选）",
           "type": [
             "string",
             "null"
           ]
-        },
-        "required": {
-          "default": true,
-          "description": "是否必填",
-          "type": "boolean"
         }
       },
       "required": [
@@ -82,34 +27,325 @@
       ],
       "type": "object"
     },
-    "CredentialFieldType": {
-      "description": "凭证字段类型",
+    "CategoryItem": {
+      "additionalProperties": false,
+      "description": "分类项",
+      "properties": {
+        "key": {
+          "description": "分类唯一标识（用于请求参数）",
+          "type": "string"
+        },
+        "label": {
+          "description": "展示名称",
+          "type": "string"
+        },
+        "value": {
+          "description": "可选：请求使用的值（不提供则默认用 key）",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "key",
+        "label"
+      ],
+      "type": "object"
+    },
+    "CategorySource": {
+      "description": "分类来源定义",
       "oneOf": [
         {
-          "const": "text",
-          "description": "普通文本",
-          "type": "string"
+          "description": "静态分类（手动配置）",
+          "properties": {
+            "items": {
+              "items": {
+                "$ref": "#/$defs/CategoryItem"
+              },
+              "type": "array"
+            },
+            "type": {
+              "const": "static",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "items"
+          ],
+          "type": "object"
         },
         {
-          "const": "password",
-          "description": "密码（隐藏显示）",
-          "type": "string"
-        },
-        {
-          "const": "email",
-          "description": "邮箱",
-          "type": "string"
-        },
-        {
-          "const": "textarea",
-          "description": "多行文本（如Cookie）",
-          "type": "string"
+          "description": "动态分类（从页面提取）",
+          "properties": {
+            "fields": {
+              "$ref": "#/$defs/CategoryFields",
+              "description": "分类项字段定义"
+            },
+            "selector": {
+              "description": "分类列表选择器",
+              "type": "string"
+            },
+            "type": {
+              "const": "dynamic",
+              "type": "string"
+            },
+            "url": {
+              "$ref": "#/$defs/Template",
+              "description": "分类数据源 URL"
+            }
+          },
+          "required": [
+            "type",
+            "url",
+            "selector",
+            "fields"
+          ],
+          "type": "object"
         }
       ]
     },
-    "DetailFlow": {
+    "ChapterListRule": {
       "additionalProperties": false,
-      "description": "详情页流程 (DetailFlow)\n处理单个内容项的详细信息",
+      "description": "章节列表提取规则 (ChapterListRule)\n定义如何提取章节列表",
+      "properties": {
+        "list": {
+          "$ref": "#/$defs/FieldRule",
+          "description": "章节列表容器的提取流程\n应返回一个包含多个章节元素的数组"
+        },
+        "title": {
+          "$ref": "#/$defs/FieldRule",
+          "description": "章节标题的提取规则（相对于单个章节元素）"
+        },
+        "url": {
+          "$ref": "#/$defs/FieldRule",
+          "description": "章节 URL 的提取规则（相对于单个章节元素）"
+        }
+      },
+      "required": [
+        "list",
+        "title",
+        "url"
+      ],
+      "type": "object"
+    },
+    "ContentFields": {
+      "description": "内容页字段规则 (ContentFields)\n用于播放页、阅读页等内容消费页面\n\n使用 Box 包装以减少枚举大小差异",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "视频播放字段",
+          "properties": {
+            "media_type": {
+              "const": "video",
+              "type": "string"
+            },
+            "play_url": {
+              "$ref": "#/$defs/FieldRule",
+              "description": "播放地址（必需）"
+            },
+            "quality": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "画质信息（可选）"
+            },
+            "title": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "视频标题（可选）"
+            }
+          },
+          "required": [
+            "media_type",
+            "play_url"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "音频播放字段",
+          "properties": {
+            "artist": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "艺术家（可选）"
+            },
+            "cover": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "封面图（可选）"
+            },
+            "duration": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "时长（可选）"
+            },
+            "lyrics": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "歌词/文本内容（可选）"
+            },
+            "media_type": {
+              "const": "audio",
+              "type": "string"
+            },
+            "play_url": {
+              "$ref": "#/$defs/FieldRule",
+              "description": "播放地址（必需）"
+            },
+            "title": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "音频标题（可选）"
+            }
+          },
+          "required": [
+            "media_type",
+            "play_url"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "书籍正文字段",
+          "properties": {
+            "content": {
+              "$ref": "#/$defs/FieldRule",
+              "description": "正文内容（必需）"
+            },
+            "media_type": {
+              "const": "book",
+              "type": "string"
+            },
+            "next_page_url": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "下一页 URL（用于分页章节）"
+            },
+            "title": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "章节标题（可选，可能需要从正文页重新获取）"
+            }
+          },
+          "required": [
+            "media_type",
+            "content"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "漫画阅读字段",
+          "properties": {
+            "images": {
+              "$ref": "#/$defs/FieldRule",
+              "description": "图片列表（必需）"
+            },
+            "media_type": {
+              "const": "manga",
+              "type": "string"
+            },
+            "next_chapter_url": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "下一章 URL（可选）"
+            },
+            "prev_chapter_url": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "上一章 URL（可选）"
+            },
+            "title": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "章节标题（可选）"
+            }
+          },
+          "required": [
+            "media_type",
+            "images"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "ContentFlow": {
+      "additionalProperties": false,
+      "description": "内容页流程 (ContentFlow)\n用于播放页、阅读页等内容消费页面\n\n例如：\n- 视频：解析真实播放地址\n- 书籍：获取章节正文内容\n- 漫画：获取章节图片列表\n- 音频：获取音频播放地址\n\n# 示例\n\n```toml\n[content]\nurl = \"{{ play_url }}\"\n\n[content.fields]\nmedia_type = \"video\"\nplay_url.steps = [{ css = \"#player\" }, { attr = \"src\" }, { filter = \"absolute_url\" }]\n```",
       "properties": {
         "description": {
           "description": "流程的功能描述",
@@ -118,116 +354,918 @@
             "null"
           ]
         },
-        "pipeline": {
-          "description": "详情页处理管道",
+        "fields": {
+          "$ref": "#/$defs/ContentFields",
+          "description": "内容字段提取规则"
+        },
+        "url": {
+          "$ref": "#/$defs/Template",
+          "description": "内容页 URL 模板\n约定输入变量: {{ play_url }} 或 {{ chapter_url }}"
+        }
+      },
+      "required": [
+        "url",
+        "fields"
+      ],
+      "type": "object"
+    },
+    "CredentialLogin": {
+      "additionalProperties": false,
+      "description": "凭证登录配置",
+      "properties": {
+        "credential_type": {
+          "$ref": "#/$defs/CredentialType",
+          "description": "凭证类型"
+        },
+        "fields": {
+          "description": "用户需要提供的字段",
           "items": {
-            "$ref": "#/$defs/Step"
+            "$ref": "#/$defs/LoginField"
           },
           "type": "array"
         }
       },
       "required": [
-        "pipeline"
+        "credential_type",
+        "fields"
       ],
       "type": "object"
     },
-    "ExtractType": {
-      "anyOf": [
+    "CredentialType": {
+      "description": "凭证类型",
+      "oneOf": [
         {
-          "const": "text",
-          "description": "提取文本内容",
+          "const": "cookie",
+          "description": "Cookie",
           "type": "string"
         },
         {
-          "const": "html",
-          "description": "提取内部HTML",
+          "const": "token",
+          "description": "Token (如 JWT)",
           "type": "string"
         },
         {
-          "const": "outer_html",
-          "description": "提取完整HTML",
+          "const": "api_key",
+          "description": "API Key",
           "type": "string"
         },
         {
-          "const": "attr:href",
-          "description": "提取 `href` 属性",
-          "type": "string"
-        },
-        {
-          "const": "attr:src",
-          "description": "提取 `src` 属性",
-          "type": "string"
-        },
-        {
-          "const": "attr:data-src",
-          "description": "提取 `data-src` 属性",
-          "type": "string"
-        },
-        {
-          "const": "attr:alt",
-          "description": "提取 `alt` 属性",
-          "type": "string"
-        },
-        {
-          "const": "attr:title",
-          "description": "提取 `title` 属性",
-          "type": "string"
-        },
-        {
-          "const": "attr:class",
-          "description": "提取 `class` 属性",
-          "type": "string"
-        },
-        {
-          "const": "attr:id",
-          "description": "提取 `id` 属性",
-          "type": "string"
-        },
-        {
-          "const": "attr:value",
-          "description": "提取 `value` 属性",
-          "type": "string"
-        },
-        {
-          "description": "提取自定义属性，格式为 `attr:your-attribute-name`",
+          "const": "custom",
+          "description": "自定义",
           "type": "string"
         }
-      ],
-      "description": "选择器提取方式"
+      ]
     },
-    "FieldMapping": {
+    "DetailFields": {
+      "description": "详情页字段规则 (DetailFields)\n根据媒体类型使用不同的字段定义\n\n使用 Box 包装以减少枚举大小差异",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "视频详情字段",
+          "properties": {
+            "actors": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "演员"
+            },
+            "category": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "分类/类型"
+            },
+            "cover": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "封面/海报"
+            },
+            "director": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "导演"
+            },
+            "duration": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "时长"
+            },
+            "intro": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "简介/剧情介绍"
+            },
+            "language": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "语言"
+            },
+            "media_type": {
+              "const": "video",
+              "type": "string"
+            },
+            "play_lines": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/PlayLineListRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "播放线路列表提取规则"
+            },
+            "region": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "地区"
+            },
+            "score": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "评分"
+            },
+            "tags": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "标签列表"
+            },
+            "title": {
+              "$ref": "#/$defs/FieldRule",
+              "description": "片名（必需）"
+            },
+            "update_info": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "更新信息/集数状态"
+            },
+            "year": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "年份"
+            }
+          },
+          "required": [
+            "media_type",
+            "title"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "音频详情字段",
+          "properties": {
+            "album": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "专辑名"
+            },
+            "artist": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "艺术家/作者"
+            },
+            "category": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "分类"
+            },
+            "cover": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "封面"
+            },
+            "intro": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "简介/描述"
+            },
+            "media_type": {
+              "const": "audio",
+              "type": "string"
+            },
+            "play_count": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "播放量"
+            },
+            "tags": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "标签列表"
+            },
+            "title": {
+              "$ref": "#/$defs/FieldRule",
+              "description": "标题（必需）"
+            },
+            "tracks": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/TrackListRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "音轨列表提取规则"
+            },
+            "update_time": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "更新时间"
+            }
+          },
+          "required": [
+            "media_type",
+            "title"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "书籍详情字段",
+          "properties": {
+            "author": {
+              "$ref": "#/$defs/FieldRule",
+              "description": "作者（必需）"
+            },
+            "category": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "分类/类型"
+            },
+            "chapters": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ChapterListRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "章节列表提取规则"
+            },
+            "cover": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "封面图 URL"
+            },
+            "intro": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "简介/描述"
+            },
+            "last_chapter": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "最新章节名"
+            },
+            "media_type": {
+              "const": "book",
+              "type": "string"
+            },
+            "status": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "连载状态"
+            },
+            "tags": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "标签列表"
+            },
+            "title": {
+              "$ref": "#/$defs/FieldRule",
+              "description": "书名（必需）"
+            },
+            "toc_url": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "目录页 URL（如果目录在单独页面）"
+            },
+            "update_time": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "更新时间"
+            },
+            "word_count": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "字数"
+            }
+          },
+          "required": [
+            "media_type",
+            "title",
+            "author"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "漫画详情字段",
+          "properties": {
+            "author": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "作者"
+            },
+            "category": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "分类"
+            },
+            "chapters": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ChapterListRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "章节列表提取规则"
+            },
+            "cover": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "封面"
+            },
+            "intro": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "简介/描述"
+            },
+            "last_chapter": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "最新章节"
+            },
+            "media_type": {
+              "const": "manga",
+              "type": "string"
+            },
+            "status": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "连载状态"
+            },
+            "tags": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "标签列表"
+            },
+            "title": {
+              "$ref": "#/$defs/FieldRule",
+              "description": "漫画名（必需）"
+            },
+            "update_time": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "更新时间"
+            }
+          },
+          "required": [
+            "media_type",
+            "title"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "DetailFlow": {
       "additionalProperties": false,
-      "description": "字段映射规则 (FieldMapping)\n定义源字段到目标字段的映射关系。",
+      "description": "详情页流程 (DetailFlow)\n处理单个内容项的详细信息\n\n# 示例\n\n```toml\n[detail]\nurl = \"{{ detail_url }}\"\n\n[detail.fields]\nmedia_type = \"video\"\ntitle.steps = [{ css = \".title\" }, { filter = \"trim\" }]\ncover.steps = [{ css = \".poster img\" }, { attr = \"src\" }, { filter = \"absolute_url\" }]\n```",
       "properties": {
-        "from": {
-          "description": "源字段路径，支持点号访问嵌套字段，如 \"data.title\" 或简单字段名 \"title\"",
-          "type": "string"
-        },
-        "to": {
-          "description": "目标字段名，必须是目标模型中的有效字段名\n如 ItemSummary: id, title, url, media_type, cover, summary, tags, meta\n如 ItemDetail: id, title, url, media_type, cover, description, metadata, tags, content",
-          "type": "string"
-        },
-        "transform": {
-          "description": "可选的转换函数（预留），如 \"to_lowercase\", \"trim\", \"parse_int\" 等",
+        "description": {
+          "description": "流程的功能描述",
           "type": [
             "string",
             "null"
           ]
+        },
+        "fields": {
+          "$ref": "#/$defs/DetailFields",
+          "description": "字段提取规则\n根据媒体类型定义不同的字段集合"
+        },
+        "url": {
+          "$ref": "#/$defs/Template",
+          "description": "详情页 URL 模板\n约定输入变量: {{ detail_url }}"
         }
       },
       "required": [
-        "from",
-        "to"
+        "url",
+        "fields"
+      ],
+      "type": "object"
+    },
+    "DiscoveryFlow": {
+      "additionalProperties": false,
+      "description": "发现页流程 (DiscoveryFlow)\n用于列表页、分类页、发现页等场景\n\n# 示例\n\n```toml\n[discovery]\nurl = \"https://example.com/category/{{ category }}?page={{ page }}\"\n\n[discovery.pagination]\npagination_type = \"page_number\"\nstart_page = 1\n\n[discovery.fields]\ntitle.steps = [{ css = \".title\" }, { filter = \"trim\" }]\nurl.steps = [{ css = \"a\" }, { attr = \"href\" }, { filter = \"absolute_url\" }]\n```",
+      "properties": {
+        "categories": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CategorySource"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "分类来源（可选）"
+        },
+        "description": {
+          "description": "流程的功能描述",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "fields": {
+          "$ref": "#/$defs/ItemFields",
+          "description": "列表项字段定义"
+        },
+        "filters": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FiltersSource"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "动态筛选器（可选）"
+        },
+        "pagination": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PaginationConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "分页配置（可选）"
+        },
+        "url": {
+          "$ref": "#/$defs/Template",
+          "description": "数据源 URL 模板\n支持变量: {{ category }}, {{ page }}, 自定义筛选器变量"
+        }
+      },
+      "required": [
+        "url",
+        "fields"
+      ],
+      "type": "object"
+    },
+    "EpisodeListRule": {
+      "additionalProperties": false,
+      "description": "剧集列表提取规则 (EpisodeListRule)",
+      "properties": {
+        "list": {
+          "$ref": "#/$defs/FieldRule",
+          "description": "剧集列表的提取流程"
+        },
+        "name": {
+          "$ref": "#/$defs/FieldRule",
+          "description": "剧集名称的提取规则"
+        },
+        "url": {
+          "$ref": "#/$defs/FieldRule",
+          "description": "剧集播放页 URL 的提取规则"
+        }
+      },
+      "required": [
+        "list",
+        "name",
+        "url"
+      ],
+      "type": "object"
+    },
+    "ExtractStep": {
+      "description": "提取步骤 (ExtractStep)\n\n单个原子化操作。步骤类型：\n- **选择步骤**：css, json, xpath, regex\n- **过滤步骤**：filter, attr, index\n- **特殊步骤**：const, var, script",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "CSS 选择器（HTML）",
+          "properties": {
+            "css": {
+              "$ref": "#/$defs/SelectorStep"
+            }
+          },
+          "required": [
+            "css"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "JSONPath 表达式（JSON）",
+          "properties": {
+            "json": {
+              "$ref": "#/$defs/SelectorStep"
+            }
+          },
+          "required": [
+            "json"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "XPath 表达式（XML/HTML）",
+          "properties": {
+            "xpath": {
+              "$ref": "#/$defs/SelectorStep"
+            }
+          },
+          "required": [
+            "xpath"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "正则表达式（文本）",
+          "properties": {
+            "regex": {
+              "$ref": "#/$defs/RegexStep"
+            }
+          },
+          "required": [
+            "regex"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "过滤器管道",
+          "properties": {
+            "filter": {
+              "$ref": "#/$defs/FilterStep"
+            }
+          },
+          "required": [
+            "filter"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "属性提取",
+          "properties": {
+            "attr": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "attr"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "索引/切片",
+          "properties": {
+            "index": {
+              "$ref": "#/$defs/IndexStep"
+            }
+          },
+          "required": [
+            "index"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "常量值",
+          "properties": {
+            "const": true
+          },
+          "required": [
+            "const"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "上下文变量",
+          "properties": {
+            "var": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "var"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "脚本调用",
+          "properties": {
+            "script": {
+              "$ref": "#/$defs/ScriptStep"
+            }
+          },
+          "required": [
+            "script"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "FieldExtractor": {
+      "additionalProperties": false,
+      "description": "字段提取器 (FieldExtractor)\n\n定义如何从响应数据中提取单个字段的值。\n通过步骤列表定义提取流程。\n\n# 示例\n\n```toml\n# 单步骤\ntitle.steps = [{ css = \".title\" }]\n\n# 多步骤\ncover.steps = [\n    { css = \"img\" },\n    { attr = \"src\" },\n    { filter = \"absolute_url\" }\n]\n\n# 带回退和默认值\nauthor.steps = [{ css = \".author\" }]\nauthor.fallback = [\n    [{ css = \".writer\" }],\n    [{ css = \".creator\" }]\n]\nauthor.default = \"佚名\"\n```",
+      "properties": {
+        "default": {
+          "description": "默认值\n\n所有提取（包括回退）都失败时使用此值"
+        },
+        "fallback": {
+          "description": "回退步骤链\n\n当主步骤提取失败（结果为空或 null）时，按顺序尝试这些备选流程",
+          "items": {
+            "items": {
+              "$ref": "#/$defs/ExtractStep"
+            },
+            "type": "array"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "nullable": {
+          "default": false,
+          "description": "是否允许空值",
+          "type": "boolean"
+        },
+        "steps": {
+          "description": "提取步骤列表\n\n按顺序执行，前一步骤的输出作为后一步骤的输入",
+          "items": {
+            "$ref": "#/$defs/ExtractStep"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "steps"
+      ],
+      "type": "object"
+    },
+    "FieldRule": {
+      "$ref": "#/$defs/FieldExtractor",
+      "description": "字段规则 (FieldRule)\n定义单个字段的提取方式\n\n`FieldRule` 是 `FieldExtractor` 的透明包装，提供更语义化的类型名。\n\n# 示例\n\n```toml\n# 单步骤提取\ntitle.steps = [{ css = \".title\" }, { filter = \"trim\" }]\n\n# 带回退和默认值\ncover.steps = [{ css = \".poster img\" }, { attr = \"src\" }, { filter = \"absolute_url\" }]\ncover.fallback = [[{ css = \".thumbnail\" }, { attr = \"src\" }]]\ncover.default = \"/default-cover.jpg\"\n```"
+    },
+    "FilterConfig": {
+      "additionalProperties": false,
+      "description": "过滤器配置（结构化形式）",
+      "properties": {
+        "args": {
+          "description": "过滤器参数",
+          "items": true,
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "name": {
+          "description": "过滤器名称",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
       ],
       "type": "object"
     },
     "FilterGroup": {
       "additionalProperties": false,
-      "description": "代表UI上一组相关的筛选选项，如\"地区\"、\"年份\"。",
+      "description": "筛选器组 (FilterGroup)\n代表UI上一组相关的筛选选项，如\"地区\"、\"年份\"。",
       "properties": {
         "key": {
-          "$ref": "#/$defs/Identifier",
-          "description": "此筛选器组在URL模板中对应的键 (`key`)。\n例如，如果 `key` 是 `\"cate_id\"`，则UI会将用户选择的值替换到URL的 `{{cate_id}}` 位置。"
+          "description": "此筛选器组在URL模板中对应的键 (`key`)。",
+          "type": "string"
         },
         "multiselect": {
           "default": false,
@@ -251,19 +1289,47 @@
         "key",
         "options"
       ],
-      "title": "筛选器组 (FilterGroup)",
+      "type": "object"
+    },
+    "FilterGroupFields": {
+      "additionalProperties": false,
+      "description": "筛选组字段定义",
+      "properties": {
+        "key": {
+          "description": "筛选组key提取规则",
+          "type": "string"
+        },
+        "name": {
+          "description": "筛选组名称提取规则",
+          "type": "string"
+        },
+        "option_fields": {
+          "$ref": "#/$defs/FilterOptionFields",
+          "description": "选项字段定义"
+        },
+        "options_selector": {
+          "description": "选项列表选择器",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "key",
+        "options_selector",
+        "option_fields"
+      ],
       "type": "object"
     },
     "FilterOption": {
       "additionalProperties": false,
-      "description": "代表一个具体的筛选选项，如\"电影\"或\"2023年\"。",
+      "description": "筛选器选项 (FilterOption)\n代表一个具体的筛选选项，如\"电影\"或\"2023年\"。",
       "properties": {
         "name": {
           "description": "选项的显示名称，如 \"美国\"。",
           "type": "string"
         },
         "value": {
-          "description": "选项的值，将用于替换URL模板中对应的 `key`。\n例如，如果 `key` 是 `\"area\"`，此 `value` 可能是 `\"USA\"`。",
+          "description": "选项的值，将用于替换URL模板中对应的 `key`。",
           "type": "string"
         }
       },
@@ -271,7 +1337,146 @@
         "name",
         "value"
       ],
-      "title": "筛选器选项 (FilterOption)",
+      "type": "object"
+    },
+    "FilterOptionFields": {
+      "additionalProperties": false,
+      "description": "筛选选项字段定义",
+      "properties": {
+        "name": {
+          "description": "选项名称提取规则",
+          "type": "string"
+        },
+        "value": {
+          "description": "选项值提取规则",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ],
+      "type": "object"
+    },
+    "FilterStep": {
+      "anyOf": [
+        {
+          "description": "管道字符串：`\"trim | lower | replace(a, b)\"`",
+          "type": "string"
+        },
+        {
+          "description": "过滤器数组（复杂参数场景）",
+          "items": {
+            "$ref": "#/$defs/FilterConfig"
+          },
+          "type": "array"
+        }
+      ],
+      "description": "过滤器步骤"
+    },
+    "FiltersSource": {
+      "description": "筛选器来源定义",
+      "oneOf": [
+        {
+          "description": "静态筛选组",
+          "properties": {
+            "groups": {
+              "items": {
+                "$ref": "#/$defs/FilterGroup"
+              },
+              "type": "array"
+            },
+            "type": {
+              "const": "static",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "groups"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "动态筛选组（从页面提取）",
+          "properties": {
+            "fields": {
+              "$ref": "#/$defs/FilterGroupFields",
+              "description": "筛选组字段定义"
+            },
+            "selector": {
+              "description": "筛选组列表选择器",
+              "type": "string"
+            },
+            "type": {
+              "const": "dynamic",
+              "type": "string"
+            },
+            "url": {
+              "$ref": "#/$defs/Template",
+              "description": "筛选器数据源 URL"
+            }
+          },
+          "required": [
+            "type",
+            "url",
+            "selector",
+            "fields"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "FormLogin": {
+      "additionalProperties": false,
+      "description": "表单登录配置",
+      "properties": {
+        "field_mapping": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Template"
+          },
+          "description": "表单字段映射\nkey: 接口参数名, value: 用户输入字段key",
+          "type": "object"
+        },
+        "fields": {
+          "description": "用户输入字段定义",
+          "items": {
+            "$ref": "#/$defs/LoginField"
+          },
+          "type": "array"
+        },
+        "method": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HttpMethod"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "HTTP 方法（默认 POST）"
+        },
+        "success_check": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SuccessCheck"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "登录成功检测"
+        },
+        "url": {
+          "$ref": "#/$defs/Template",
+          "description": "登录接口 URL"
+        }
+      },
+      "required": [
+        "url",
+        "fields",
+        "field_mapping"
+      ],
       "type": "object"
     },
     "HttpConfig": {
@@ -422,133 +1627,234 @@
         }
       ]
     },
-    "Identifier": {
-      "description": "标识符 (Identifier)\n用于校验变量名、组件名、流程名等。\n必须由字母、数字和下划线组成，且不能以数字开头。",
-      "type": "string"
+    "IndexStep": {
+      "anyOf": [
+        {
+          "description": "单个索引",
+          "format": "int32",
+          "type": "integer"
+        },
+        {
+          "description": "切片表达式 \"start:end\" 或 \"start:end:step\"",
+          "type": "string"
+        }
+      ],
+      "description": "索引/切片步骤"
     },
-    "ListFlow": {
+    "ItemFields": {
       "additionalProperties": false,
-      "description": "列表页流程 (ListFlow)\n用于发现和浏览内容列表",
+      "description": "列表项字段规则 (ItemFields)\n定义列表页中每个项目需要提取的字段\n这些字段将构成 ItemSummary",
       "properties": {
-        "description": {
-          "description": "流程的功能描述",
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "filters": {
-          "description": "筛选器配置",
-          "items": {
-            "$ref": "#/$defs/FilterGroup"
-          },
-          "type": [
-            "array",
-            "null"
-          ]
-        },
-        "pagination": {
+        "author": {
           "anyOf": [
             {
-              "$ref": "#/$defs/PaginationConfig"
+              "$ref": "#/$defs/FieldRule"
             },
             {
               "type": "null"
             }
           ],
-          "description": "分页配置"
+          "description": "作者/创作者（书籍、漫画、音频常用）"
         },
-        "pipeline": {
-          "description": "列表页处理管道",
-          "items": {
-            "$ref": "#/$defs/Step"
-          },
-          "type": "array"
+        "category": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FieldRule"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "分类/标签（返回字符串，多个标签用分隔符分开）"
+        },
+        "cover": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FieldRule"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "封面图 URL"
+        },
+        "extra": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FieldRule"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "扩展字段（用于媒体类型特定的额外信息）"
+        },
+        "latest": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FieldRule"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "最新章节/更新信息"
+        },
+        "score": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FieldRule"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "评分"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FieldRule"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "状态（连载中/已完结等）"
+        },
+        "summary": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FieldRule"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "简介/摘要"
+        },
+        "title": {
+          "$ref": "#/$defs/FieldRule",
+          "description": "标题（必需）"
+        },
+        "url": {
+          "$ref": "#/$defs/FieldRule",
+          "description": "详情页 URL（必需）"
         }
       },
       "required": [
-        "pipeline"
+        "title",
+        "url"
       ],
       "type": "object"
     },
-    "LoginFlow": {
+    "LoginField": {
       "additionalProperties": false,
-      "description": "登录流程 (LoginFlow)\n处理网站的身份验证，支持多种认证方式",
+      "description": "登录字段定义\n用于 App 生成用户输入表单",
       "properties": {
-        "check_login": {
-          "description": "登录验证：检查是否已登录的管道",
-          "items": {
-            "$ref": "#/$defs/Step"
-          },
+        "field_type": {
+          "$ref": "#/$defs/LoginFieldType",
+          "default": "text",
+          "description": "字段类型"
+        },
+        "key": {
+          "description": "字段标识符（变量名）",
+          "type": "string"
+        },
+        "label": {
+          "description": "字段显示名称",
+          "type": "string"
+        },
+        "placeholder": {
+          "description": "占位符文本",
           "type": [
-            "array",
+            "string",
             "null"
           ]
         },
-        "credentials": {
-          "description": "登录所需的凭证字段定义",
-          "items": {
-            "$ref": "#/$defs/CredentialField"
-          },
-          "type": [
-            "array",
-            "null"
-          ]
+        "required": {
+          "default": true,
+          "description": "是否必填",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "key",
+        "label"
+      ],
+      "type": "object"
+    },
+    "LoginFieldType": {
+      "description": "登录字段类型",
+      "oneOf": [
+        {
+          "const": "text",
+          "description": "普通文本",
+          "type": "string"
         },
+        {
+          "const": "password",
+          "description": "密码（隐藏显示）",
+          "type": "string"
+        },
+        {
+          "const": "textarea",
+          "description": "多行文本（如 Cookie 字符串、Token）",
+          "type": "string"
+        }
+      ]
+    },
+    "LoginFlow": {
+      "description": "登录流程 (LoginFlow)\n提供三种常见登录模式\n\n# 示例\n\n```yaml\n# WebView 登录\nlogin:\n  webview:\n    url: \"https://example.com/login\"\n\n# 表单登录\nlogin:\n  form:\n    url: \"https://example.com/api/login\"\n    method: POST\n    fields:\n      username: \"{{ username }}\"\n      password: \"{{ password }}\"\n\n# 凭证登录\nlogin:\n  credential:\n    type: cookie\n    fields:\n      - key: session_id\n        label: \"会话ID\"\n```",
+      "oneOf": [
+        {
+          "description": "WebView 登录\nApp 打开内嵌浏览器，用户手动登录",
+          "properties": {
+            "webview": {
+              "$ref": "#/$defs/WebViewLogin"
+            }
+          },
+          "required": [
+            "webview"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "表单登录\n通过 HTTP 表单提交用户凭证",
+          "properties": {
+            "form": {
+              "$ref": "#/$defs/FormLogin"
+            }
+          },
+          "required": [
+            "form"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "凭证登录\n用户手动提供认证信息（Cookie/Token等）",
+          "properties": {
+            "credential": {
+              "$ref": "#/$defs/CredentialLogin"
+            }
+          },
+          "required": [
+            "credential"
+          ],
+          "type": "object"
+        }
+      ],
+      "properties": {
         "description": {
           "description": "流程的功能描述",
           "type": [
             "string",
             "null"
           ]
-        },
-        "login_type": {
-          "$ref": "#/$defs/LoginType",
-          "default": "password",
-          "description": "登录类型"
-        },
-        "pipeline": {
-          "description": "登录动作管道",
-          "items": {
-            "$ref": "#/$defs/Step"
-          },
-          "type": "array"
         }
       },
-      "required": [
-        "pipeline"
-      ],
-      "type": "object"
-    },
-    "LoginType": {
-      "description": "登录类型",
-      "oneOf": [
-        {
-          "const": "password",
-          "description": "用户名密码登录",
-          "type": "string"
-        },
-        {
-          "const": "cookie",
-          "description": "Cookie登录",
-          "type": "string"
-        },
-        {
-          "const": "token",
-          "description": "Token登录",
-          "type": "string"
-        },
-        {
-          "const": "o_auth",
-          "description": "OAuth登录",
-          "type": "string"
-        },
-        {
-          "const": "captcha",
-          "description": "验证码登录",
-          "type": "string"
-        }
-      ]
+      "type": "object",
+      "unevaluatedProperties": false
     },
     "MediaType": {
       "description": "用于指定规则适用的媒体内容类型。",
@@ -649,9 +1955,9 @@
           ]
         },
         "page_param": {
-          "$ref": "#/$defs/Identifier",
           "default": "page",
-          "description": "页码参数名"
+          "description": "页码参数名",
+          "type": "string"
         },
         "page_size": {
           "description": "每页数量（如果适用）",
@@ -694,89 +2000,66 @@
           "const": "cursor",
           "description": "游标分页",
           "type": "string"
-        },
-        {
-          "const": "load_more",
-          "description": "加载更多（无限滚动）",
-          "type": "string"
         }
       ]
     },
-    "RuntimeLimits": {
+    "PlayLineListRule": {
       "additionalProperties": false,
-      "description": "运行时限制配置\n用于限制规则执行时的资源使用",
+      "description": "播放线路列表提取规则 (PlayLineListRule)\n定义如何提取播放线路和剧集",
       "properties": {
-        "execution_timeout_ms": {
-          "default": 30000,
-          "description": "整体执行超时时间（毫秒）",
-          "format": "uint64",
-          "minimum": 0,
-          "type": "integer"
+        "episodes": {
+          "$ref": "#/$defs/EpisodeListRule",
+          "description": "剧集列表的提取规则（相对于单个线路元素）"
         },
-        "max_concurrent_requests": {
-          "description": "最大并发请求数",
-          "format": "uint",
-          "minimum": 0,
-          "type": [
-            "integer",
-            "null"
-          ]
+        "line_name": {
+          "$ref": "#/$defs/FieldRule",
+          "description": "线路名称的提取规则（相对于单个线路元素）"
         },
-        "max_http_requests": {
-          "description": "最大HTTP请求数",
-          "format": "uint",
-          "minimum": 0,
-          "type": [
-            "integer",
-            "null"
-          ]
-        },
-        "max_loop_iterations": {
-          "default": 10000,
-          "description": "单次循环的最大迭代次数",
-          "format": "uint",
-          "minimum": 0,
-          "type": "integer"
-        },
-        "max_pipeline_length": {
-          "default": 100,
-          "description": "单个管道的最大步骤数",
-          "format": "uint",
-          "minimum": 0,
-          "type": "integer"
-        },
-        "max_recursion_depth": {
-          "default": 10,
-          "description": "组件调用的最大递归深度",
-          "format": "uint",
-          "minimum": 0,
-          "type": "integer"
-        },
-        "max_response_size": {
-          "description": "最大响应体大小（字节）",
-          "format": "uint",
-          "minimum": 0,
-          "type": [
-            "integer",
-            "null"
-          ]
-        },
-        "max_string_length": {
-          "default": 10485760,
-          "description": "单个字符串的最大长度（字节）",
-          "format": "uint",
-          "minimum": 0,
-          "type": "integer"
-        },
-        "max_variables": {
-          "default": 1000,
-          "description": "变量上下文中的最大变量数量",
-          "format": "uint",
-          "minimum": 0,
-          "type": "integer"
+        "lines": {
+          "$ref": "#/$defs/FieldRule",
+          "description": "线路列表容器的提取流程"
         }
       },
+      "required": [
+        "lines",
+        "line_name",
+        "episodes"
+      ],
       "type": "object"
+    },
+    "RegexStep": {
+      "anyOf": [
+        {
+          "description": "简单正则（默认取第1组）",
+          "type": "string"
+        },
+        {
+          "description": "带配置的正则",
+          "properties": {
+            "global": {
+              "default": false,
+              "description": "是否全局匹配",
+              "type": "boolean"
+            },
+            "group": {
+              "default": 1,
+              "description": "捕获组索引（默认 1）",
+              "format": "uint",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "pattern": {
+              "description": "正则表达式模式",
+              "type": "string"
+            }
+          },
+          "required": [
+            "pattern"
+          ],
+          "type": "object"
+        }
+      ],
+      "description": "正则表达式步骤"
     },
     "ScriptEngine": {
       "description": "脚本引擎类型 (ScriptEngine)\n用于指定脚本执行环境的类型。",
@@ -858,6 +2141,36 @@
       },
       "type": "object"
     },
+    "ScriptStep": {
+      "anyOf": [
+        {
+          "description": "简单脚本名",
+          "type": "string"
+        },
+        {
+          "description": "带参数的脚本调用",
+          "properties": {
+            "name": {
+              "description": "脚本名称（`模块.函数` 或 `函数`）",
+              "type": "string"
+            },
+            "params": {
+              "additionalProperties": true,
+              "description": "脚本参数",
+              "type": [
+                "object",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "type": "object"
+        }
+      ],
+      "description": "脚本调用步骤"
+    },
     "ScriptingConfig": {
       "additionalProperties": false,
       "description": "脚本配置 (ScriptingConfig)\n配置用于执行自定义逻辑的脚本环境。",
@@ -882,7 +2195,7 @@
     },
     "SearchFlow": {
       "additionalProperties": false,
-      "description": "搜索流程 (SearchFlow)\n处理搜索功能",
+      "description": "搜索流程 (SearchFlow)\n实现搜索功能\n\n# 示例\n\n```toml\n[search]\nurl = \"https://example.com/search?q={{ keyword }}&page={{ page }}\"\n\n[search.pagination]\npagination_type = \"page_number\"\n\n[search.fields]\ntitle.steps = [{ css = \".title\" }]\nurl.steps = [{ css = \"a\" }, { attr = \"href\" }]\n```",
       "properties": {
         "description": {
           "description": "流程的功能描述",
@@ -891,15 +2204,9 @@
             "null"
           ]
         },
-        "filters": {
-          "description": "搜索筛选器",
-          "items": {
-            "$ref": "#/$defs/FilterGroup"
-          },
-          "type": [
-            "array",
-            "null"
-          ]
+        "fields": {
+          "$ref": "#/$defs/ItemFields",
+          "description": "列表项字段定义"
         },
         "pagination": {
           "anyOf": [
@@ -910,163 +2217,58 @@
               "type": "null"
             }
           ],
-          "description": "分页配置"
+          "description": "分页配置（可选）"
         },
-        "pipeline": {
-          "description": "搜索处理管道",
-          "items": {
-            "$ref": "#/$defs/Step"
-          },
-          "type": "array"
+        "url": {
+          "$ref": "#/$defs/Template",
+          "description": "搜索 URL 模板\n约定输入变量: {{ keyword }}, {{ page }}"
         }
       },
       "required": [
-        "pipeline"
+        "url",
+        "fields"
       ],
       "type": "object"
     },
-    "Step": {
-      "description": "步骤 (Step)\n管道中的一个原子操作单元。",
+    "SelectorStep": {
+      "anyOf": [
+        {
+          "description": "简单选择器字符串",
+          "type": "string"
+        },
+        {
+          "description": "带配置的选择器",
+          "properties": {
+            "all": {
+              "default": false,
+              "description": "是否选择所有匹配（默认 false）",
+              "type": "boolean"
+            },
+            "selector": {
+              "description": "选择器表达式",
+              "type": "string"
+            }
+          },
+          "required": [
+            "selector"
+          ],
+          "type": "object"
+        }
+      ],
+      "description": "选择器步骤（CSS/JSONPath/XPath 通用）"
+    },
+    "SuccessCheck": {
+      "description": "登录成功检测",
       "oneOf": [
         {
-          "additionalProperties": false,
-          "description": "**HTTP请求**: 发起网络请求。",
+          "description": "JSONPath 检测",
           "properties": {
-            "body": {
-              "anyOf": [
-                {
-                  "$ref": "#/$defs/Template"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "POST请求体。\n模板字符串，详见顶部规范说明。"
+            "expect": {
+              "description": "期望值"
             },
-            "headers": {
-              "additionalProperties": {
-                "$ref": "#/$defs/Template"
-              },
-              "description": "本次请求的自定义头。\n请求头模板字符串，详见顶部规范说明。",
-              "type": [
-                "object",
-                "null"
-              ]
-            },
-            "method": {
-              "anyOf": [
-                {
-                  "$ref": "#/$defs/HttpMethod"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "HTTP方法。"
-            },
-            "output": {
-              "$ref": "#/$defs/Identifier",
-              "description": "将包含响应体、状态码、头的响应对象存入此变量。"
-            },
-            "type": {
-              "const": "http_request",
+            "path": {
+              "description": "JSONPath 表达式",
               "type": "string"
-            },
-            "url": {
-              "$ref": "#/$defs/Template",
-              "description": "要请求的URL。\n模板字符串，详见顶部规范说明。"
-            }
-          },
-          "required": [
-            "type",
-            "url",
-            "output"
-          ],
-          "type": "object"
-        },
-        {
-          "additionalProperties": false,
-          "description": "**CSS选择器**: 从HTML中提取单个元素。",
-          "properties": {
-            "extract": {
-              "$ref": "#/$defs/ExtractType",
-              "description": "提取方式。"
-            },
-            "input": {
-              "$ref": "#/$defs/Template",
-              "description": "输入的HTML字符串。\n模板字符串，详见顶部规范说明。"
-            },
-            "output": {
-              "$ref": "#/$defs/Identifier",
-              "description": "将提取的结果存入此变量。"
-            },
-            "query": {
-              "$ref": "#/$defs/Template",
-              "description": "CSS选择器表达式。\n模板字符串，详见顶部规范说明。"
-            },
-            "type": {
-              "const": "selector",
-              "type": "string"
-            }
-          },
-          "required": [
-            "type",
-            "input",
-            "query",
-            "extract",
-            "output"
-          ],
-          "type": "object"
-        },
-        {
-          "additionalProperties": false,
-          "description": "**CSS选择器(全部)**: 从HTML中提取所有匹配的元素数组。",
-          "properties": {
-            "extract": {
-              "$ref": "#/$defs/ExtractType",
-              "description": "提取方式。"
-            },
-            "input": {
-              "$ref": "#/$defs/Template",
-              "description": "输入的HTML字符串。\n模板字符串，详见顶部规范说明。"
-            },
-            "output": {
-              "$ref": "#/$defs/Identifier",
-              "description": "将提取的字符串数组存入此变量。"
-            },
-            "query": {
-              "$ref": "#/$defs/Template",
-              "description": "CSS选择器表达式。\n模板字符串，详见顶部规范说明。"
-            },
-            "type": {
-              "const": "selector_all",
-              "type": "string"
-            }
-          },
-          "required": [
-            "type",
-            "input",
-            "query",
-            "extract",
-            "output"
-          ],
-          "type": "object"
-        },
-        {
-          "additionalProperties": false,
-          "description": "**JSONPath**: 从JSON数据中提取信息。",
-          "properties": {
-            "input": {
-              "$ref": "#/$defs/Template",
-              "description": "输入的JSON字符串或对象。\n模板字符串，详见顶部规范说明。"
-            },
-            "output": {
-              "$ref": "#/$defs/Identifier",
-              "description": "将提取结果存入此变量。"
-            },
-            "query": {
-              "$ref": "#/$defs/Template",
-              "description": "JSONPath 查询表达式。\n模板字符串，详见顶部规范说明。"
             },
             "type": {
               "const": "json_path",
@@ -1075,294 +2277,47 @@
           },
           "required": [
             "type",
-            "input",
-            "query",
-            "output"
+            "path",
+            "expect"
           ],
           "type": "object"
         },
         {
-          "additionalProperties": false,
-          "description": "**执行脚本**: 调用脚本模块中的函数。",
+          "description": "状态码检测",
           "properties": {
-            "call": {
-              "description": "要调用的函数，格式为 `模块名.函数名`。",
-              "pattern": "^[a-zA-Z_][a-zA-Z0-9_]*\\.[a-zA-Z_][a-zA-Z0-9_]*$",
-              "type": "string"
-            },
-            "output": {
-              "$ref": "#/$defs/Identifier",
-              "description": "将函数返回值存入此变量。"
-            },
-            "type": {
-              "const": "script",
-              "type": "string"
-            },
-            "with": {
-              "anyOf": [
-                {
-                  "$ref": "#/$defs/Template"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "传递给函数的参数。这是一个动态值，允许在模板中构建复杂的JSON对象。\n模板字符串，详见顶部规范说明。"
-            }
-          },
-          "required": [
-            "type",
-            "call",
-            "output"
-          ],
-          "type": "object"
-        },
-        {
-          "additionalProperties": false,
-          "description": "**调用组件**: 执行一个在 `[components]` 中定义的组件。",
-          "properties": {
-            "component": {
-              "$ref": "#/$defs/Identifier",
-              "description": "要调用的组件名，必须在 `[components]` 中定义。"
-            },
-            "output": {
-              "$ref": "#/$defs/Identifier",
-              "description": "将组件的输出（一个包含所有输出变量的Map）存入此变量。"
-            },
-            "type": {
-              "const": "call",
-              "type": "string"
-            },
-            "with": {
-              "additionalProperties": {
-                "$ref": "#/$defs/Template"
-              },
-              "description": "传递给组件的输入参数。\n输入参数模板字符串，详见顶部规范说明。",
-              "type": [
-                "object",
-                "null"
-              ]
-            }
-          },
-          "required": [
-            "type",
-            "component",
-            "output"
-          ],
-          "type": "object"
-        },
-        {
-          "additionalProperties": false,
-          "description": "**字符串操作: 模板**: 使用变量格式化字符串。",
-          "properties": {
-            "output": {
-              "$ref": "#/$defs/Identifier",
-              "description": "输出结果变量名。"
-            },
-            "template": {
-              "$ref": "#/$defs/Template",
-              "description": "模板字符串。"
-            },
-            "type": {
-              "const": "string_template",
-              "type": "string"
-            }
-          },
-          "required": [
-            "type",
-            "template",
-            "output"
-          ],
-          "type": "object"
-        },
-        {
-          "additionalProperties": false,
-          "description": "**设置常量**: 创建一个值为常量的变量。",
-          "properties": {
-            "output": {
-              "$ref": "#/$defs/Identifier",
-              "description": "将此常量存入的变量名。"
-            },
-            "type": {
-              "const": "constant",
-              "type": "string"
-            },
-            "value": {
-              "description": "常量值。"
-            }
-          },
-          "required": [
-            "type",
-            "value",
-            "output"
-          ],
-          "type": "object"
-        },
-        {
-          "additionalProperties": false,
-          "description": "**字段映射**: 将解析层字段映射到渲染层标准模型。",
-          "properties": {
-            "input": {
-              "$ref": "#/$defs/Template",
-              "description": "输入数据的变量名或模板字符串。\n模板字符串，详见顶部规范说明。"
-            },
-            "mappings": {
-              "description": "字段映射规则列表。",
-              "items": {
-                "$ref": "#/$defs/FieldMapping"
-              },
-              "type": "array"
-            },
-            "output": {
-              "$ref": "#/$defs/Identifier",
-              "description": "将映射结果存入此变量。"
-            },
-            "target": {
-              "description": "目标模型类型: \"item_summary\" 或 \"item_detail\"",
-              "pattern": "^(item_summary|item_detail)$",
-              "type": "string"
-            },
-            "type": {
-              "const": "map_field",
-              "type": "string"
-            }
-          },
-          "required": [
-            "type",
-            "input",
-            "target",
-            "mappings",
-            "output"
-          ],
-          "type": "object"
-        },
-        {
-          "additionalProperties": false,
-          "description": "**缓存获取**: 从缓存中获取值。",
-          "properties": {
-            "key": {
-              "$ref": "#/$defs/Template",
-              "description": "缓存键。\n模板字符串，详见顶部规范说明。"
-            },
-            "output": {
-              "$ref": "#/$defs/Identifier",
-              "description": "将获取的值存入此变量。"
-            },
-            "scope": {
-              "anyOf": [
-                {
-                  "$ref": "#/$defs/CacheScope"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "缓存作用域。"
-            },
-            "type": {
-              "const": "cache_get",
-              "type": "string"
-            }
-          },
-          "required": [
-            "type",
-            "key",
-            "output"
-          ],
-          "type": "object"
-        },
-        {
-          "additionalProperties": false,
-          "description": "**缓存设置**: 将值存入缓存。",
-          "properties": {
-            "key": {
-              "$ref": "#/$defs/Template",
-              "description": "缓存键。\n模板字符串，详见顶部规范说明。"
-            },
-            "scope": {
-              "anyOf": [
-                {
-                  "$ref": "#/$defs/CacheScope"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "缓存作用域。"
-            },
-            "ttl": {
-              "description": "过期时间（秒）。",
-              "format": "uint32",
+            "expect": {
+              "description": "期望的状态码",
+              "format": "uint16",
+              "maximum": 65535,
               "minimum": 0,
-              "type": [
-                "integer",
-                "null"
-              ]
+              "type": "integer"
             },
             "type": {
-              "const": "cache_set",
+              "const": "status_code",
               "type": "string"
-            },
-            "value": {
-              "$ref": "#/$defs/Template",
-              "description": "要缓存的值。\n模板字符串，详见顶部规范说明。"
             }
           },
           "required": [
             "type",
-            "key",
-            "value"
+            "expect"
           ],
           "type": "object"
         },
         {
-          "additionalProperties": false,
-          "description": "**循环: ForEach**: 遍历数组中的每一项并执行子管道。",
+          "description": "响应包含检测",
           "properties": {
-            "as": {
-              "$ref": "#/$defs/Identifier",
-              "description": "在循环中，当前项的变量名。"
-            },
-            "input": {
-              "$ref": "#/$defs/Template",
-              "description": "要遍历的数组变量。\n模板字符串，详见顶部规范说明。"
-            },
-            "pipeline": {
-              "description": "对每一项执行的子管道。",
-              "items": {
-                "$ref": "#/$defs/Step"
-              },
-              "type": "array"
+            "text": {
+              "description": "期望包含的字符串",
+              "type": "string"
             },
             "type": {
-              "const": "loop_for_each",
+              "const": "contains",
               "type": "string"
             }
           },
           "required": [
             "type",
-            "input",
-            "as",
-            "pipeline"
-          ],
-          "type": "object"
-        },
-        {
-          "additionalProperties": false,
-          "description": "**日志输出**: 打印调试信息。",
-          "properties": {
-            "message": {
-              "$ref": "#/$defs/Template",
-              "description": "要打印的消息。\n模板字符串，详见顶部规范说明。"
-            },
-            "type": {
-              "const": "log",
-              "type": "string"
-            }
-          },
-          "required": [
-            "type",
-            "message"
+            "text"
           ],
           "type": "object"
         }
@@ -1372,22 +2327,100 @@
       "description": "模板字符串 (Template)\n\n支持 Tera 模板语法的字符串类型，用于在运行时进行变量插值。\n\n## 语法规范\n- 变量插值: `{{ variable }}`\n- 嵌套访问: `{{ user.name }}`, `{{ items[0] }}`\n- 过滤器: `{{ name | upper }}`\n- 条件: `{% if condition %}...{% endif %}`\n- 循环: `{% for item in items %}...{% endfor %}`\n\n## 示例\n```text\nhttps://example.com/search?q={{ keyword }}\nHello, {{ user.name }}!\n{{ items[0].title }}\n```",
       "pattern": "{{\\s*([a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*|\\[[0-9]+\\])*)\\s*}}",
       "type": "string"
+    },
+    "TrackListRule": {
+      "additionalProperties": false,
+      "description": "音轨列表提取规则 (TrackListRule)",
+      "properties": {
+        "duration": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FieldRule"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "时长的提取规则（可选）"
+        },
+        "list": {
+          "$ref": "#/$defs/FieldRule",
+          "description": "音轨列表的提取流程"
+        },
+        "name": {
+          "$ref": "#/$defs/FieldRule",
+          "description": "音轨名称的提取规则"
+        },
+        "url": {
+          "$ref": "#/$defs/FieldRule",
+          "description": "音轨 URL 的提取规则"
+        }
+      },
+      "required": [
+        "list",
+        "name",
+        "url"
+      ],
+      "type": "object"
+    },
+    "WebViewLogin": {
+      "additionalProperties": false,
+      "description": "WebView 登录配置",
+      "properties": {
+        "cookie_domain": {
+          "description": "Cookie 域名（可选，默认为 URL 的根域名）",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "success_selector": {
+          "description": "登录成功检测选择器（可选）\n如果提供，检测该元素存在则认为登录成功",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "url": {
+          "$ref": "#/$defs/Template",
+          "description": "登录页 URL"
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "type": "object"
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "影视软件爬虫规则 (CrawlerRule)",
   "properties": {
-    "components": {
-      "additionalProperties": {
-        "$ref": "#/$defs/Component"
-      },
-      "description": "定义可在此规则中复用的\"组件\"或\"函数\"。",
-      "type": "object"
+    "content": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ContentFlow"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "内容页流程（可选）\n用于播放页、阅读页等需要进一步解析内容的场景"
     },
     "detail": {
       "$ref": "#/$defs/DetailFlow",
       "description": "详情页流程（必需）"
+    },
+    "discovery": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DiscoveryFlow"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "发现页流程（可选）\n提供筛选器和分页配置"
     },
     "http": {
       "anyOf": [
@@ -1399,28 +2432,6 @@
         }
       ],
       "description": "全局的网络请求配置，可被流程局部配置覆盖。"
-    },
-    "limits": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/RuntimeLimits"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "description": "运行时资源限制配置。"
-    },
-    "list": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/ListFlow"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "description": "列表页流程（可选）"
     },
     "login": {
       "anyOf": [
@@ -1455,7 +2466,6 @@
   },
   "required": [
     "meta",
-    "components",
     "detail",
     "search"
   ],

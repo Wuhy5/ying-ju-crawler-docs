@@ -17,116 +17,99 @@ const sidebars: SidebarsConfig = {
     {
       type: 'doc',
       id: 'README',
-      label: '简介',
+      label: '📖 简介',
     },
     {
       type: 'category',
-      label: '核心概念',
+      label: '🚀 入门指南',
       items: [
         {
           type: 'doc',
-          id: 'core/concepts',
-          label: '基本概念',
+          id: 'guide/getting-started',
+          label: '快速开始',
         },
         {
           type: 'doc',
-          id: 'core/rule-file',
-          label: '规则文件结构',
+          id: 'guide/concepts',
+          label: '核心概念',
+        },
+        {
+          type: 'doc',
+          id: 'guide/extraction',
+          label: '字段提取',
         },
       ],
     },
     {
       type: 'category',
-      label: '规范定义',
+      label: '⚙️ 流程配置',
       items: [
         {
           type: 'doc',
-          id: 'spec/schema',
-          label: 'JSON Schema',
+          id: 'flows/search',
+          label: '搜索流程',
         },
         {
           type: 'doc',
-          id: 'spec/media-types',
+          id: 'flows/detail',
+          label: '详情流程',
+        },
+        {
+          type: 'doc',
+          id: 'flows/discovery',
+          label: '发现流程',
+        },
+        {
+          type: 'doc',
+          id: 'flows/content',
+          label: '内容流程',
+        },
+        {
+          type: 'doc',
+          id: 'flows/login',
+          label: '登录流程',
+        },
+      ],
+    },
+    {
+      type: 'category',
+      label: '📚 参考文档',
+      items: [
+        {
+          type: 'doc',
+          id: 'reference/steps',
+          label: '提取步骤',
+        },
+        {
+          type: 'doc',
+          id: 'reference/filters',
+          label: '过滤器',
+        },
+        {
+          type: 'doc',
+          id: 'reference/media-types',
           label: '媒体类型',
         },
         {
           type: 'doc',
-          id: 'spec/field-mapping',
-          label: '字段映射',
-        },
-        {
-          type: 'doc',
-          id: 'spec/pipeline',
-          label: '流水线系统',
-        },
-      ],
-    },
-    {
-      type: 'category',
-      label: '配置指南',
-      items: [
-        {
-          type: 'doc',
-          id: 'config/cache',
-          label: '缓存配置',
-        },
-        {
-          type: 'doc',
-          id: 'config/http',
+          id: 'reference/http',
           label: 'HTTP 配置',
         },
         {
           type: 'doc',
-          id: 'config/scripting',
+          id: 'reference/scripting',
           label: '脚本配置',
         },
       ],
     },
     {
       type: 'category',
-      label: '高级特性',
-      items: [
-        {
-          type: 'doc',
-          id: 'components/overview',
-          label: '组件系统',
-        },
-        {
-          type: 'doc',
-          id: 'flows/overview',
-          label: '流程系统',
-        },
-      ],
-    },
-    {
-      type: 'category',
-      label: 'Schema 定义',
+      label: '📋 Schema 定义',
       items: [
         {
           type: 'doc',
           id: 'schema/README',
-          label: 'Schema 规范',
-        },
-      ],
-    },
-    {
-      type: 'category',
-      label: '实践示例',
-      items: [
-        {
-          type: 'doc',
-          id: 'examples/README',
-          label: '示例概述',
-        },
-        {
-          type: 'doc',
-          id: 'examples/cache-example',
-          label: '缓存示例',
-        },
-        {
-          type: 'doc',
-          id: 'examples/flow-example',
-          label: '流程示例',
+          label: 'JSON Schema',
         },
       ],
     },

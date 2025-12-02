@@ -369,50 +369,123 @@
       ],
       "type": "object"
     },
-    "CredentialLogin": {
+    "CredentialField": {
       "additionalProperties": false,
-      "description": "凭证登录配置",
+      "description": "凭证字段定义",
       "properties": {
-        "credential_type": {
-          "$ref": "#/$defs/CredentialType",
-          "description": "凭证类型"
+        "field_type": {
+          "$ref": "#/$defs/CredentialFieldType",
+          "default": "text",
+          "description": "字段类型"
         },
-        "fields": {
-          "description": "用户需要提供的字段",
-          "items": {
-            "$ref": "#/$defs/LoginField"
-          },
-          "type": "array"
+        "help": {
+          "description": "帮助说明文本",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "key": {
+          "description": "字段标识符（变量名）",
+          "type": "string"
+        },
+        "label": {
+          "description": "字段显示名称",
+          "type": "string"
+        },
+        "placeholder": {
+          "description": "占位符文本",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "required": {
+          "default": true,
+          "description": "是否必填（默认 true）",
+          "type": "boolean"
         }
       },
       "required": [
-        "credential_type",
-        "fields"
+        "key",
+        "label"
       ],
       "type": "object"
     },
-    "CredentialType": {
-      "description": "凭证类型",
+    "CredentialFieldType": {
+      "description": "凭证字段类型",
       "oneOf": [
         {
-          "const": "cookie",
-          "description": "Cookie",
+          "const": "text",
+          "description": "普通文本（单行）",
           "type": "string"
         },
         {
-          "const": "token",
-          "description": "Token (如 JWT)",
+          "const": "password",
+          "description": "密码（隐藏显示）",
           "type": "string"
         },
         {
-          "const": "api_key",
-          "description": "API Key",
+          "const": "textarea",
+          "description": "多行文本（如 Cookie 字符串、Token）",
           "type": "string"
+        }
+      ]
+    },
+    "CredentialStorage": {
+      "description": "凭证存储方式\n\n定义如何将用户输入的凭证应用到 HTTP 请求中",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "存储为 Cookie\n凭证将作为 Cookie 随请求发送",
+          "properties": {
+            "domain": {
+              "description": "Cookie 的域名（可选，默认为规则的 domain）",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "field_key": {
+              "description": "要存储的字段 key（对应 fields 中的 key）\n如果不指定，则使用名为 \"cookie\" 的字段或第一个 textarea 类型字段",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "type": {
+              "const": "cookie",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
         },
         {
-          "const": "custom",
-          "description": "自定义",
-          "type": "string"
+          "additionalProperties": false,
+          "description": "添加到请求头\n凭证将添加到指定的 HTTP Header",
+          "properties": {
+            "header_name": {
+              "description": "HTTP Header 名称\n例如: \"Authorization\", \"X-Token\", \"X-Api-Key\"",
+              "type": "string"
+            },
+            "header_template": {
+              "$ref": "#/$defs/Template",
+              "description": "Header 值模板\n支持变量插值，如 \"Bearer {{ token }}\" 或直接 \"{{ api_key }}\""
+            },
+            "type": {
+              "const": "header",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "header_name",
+            "header_template"
+          ],
+          "type": "object"
         }
       ]
     },
@@ -1427,58 +1500,6 @@
         }
       ]
     },
-    "FormLogin": {
-      "additionalProperties": false,
-      "description": "表单登录配置",
-      "properties": {
-        "field_mapping": {
-          "additionalProperties": {
-            "$ref": "#/$defs/Template"
-          },
-          "description": "表单字段映射\nkey: 接口参数名, value: 用户输入字段key",
-          "type": "object"
-        },
-        "fields": {
-          "description": "用户输入字段定义",
-          "items": {
-            "$ref": "#/$defs/LoginField"
-          },
-          "type": "array"
-        },
-        "method": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/HttpMethod"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "HTTP 方法（默认 POST）"
-        },
-        "success_check": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/SuccessCheck"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "登录成功检测"
-        },
-        "url": {
-          "$ref": "#/$defs/Template",
-          "description": "登录接口 URL"
-        }
-      },
-      "required": [
-        "url",
-        "fields",
-        "field_mapping"
-      ],
-      "type": "object"
-    },
     "HttpConfig": {
       "additionalProperties": false,
       "description": "全局HTTP配置 (HttpConfig)\n定义所有网络请求的默认行为。",
@@ -1586,46 +1607,6 @@
         }
       },
       "type": "object"
-    },
-    "HttpMethod": {
-      "description": "HTTP 请求方法 (HttpMethod)\n用于指定网络请求的 HTTP 方法。",
-      "oneOf": [
-        {
-          "const": "GET",
-          "description": "GET 请求，通常用于获取数据。",
-          "type": "string"
-        },
-        {
-          "const": "POST",
-          "description": "POST 请求，通常用于提交数据。",
-          "type": "string"
-        },
-        {
-          "const": "PUT",
-          "description": "PUT 请求，通常用于更新数据。",
-          "type": "string"
-        },
-        {
-          "const": "DELETE",
-          "description": "DELETE 请求，通常用于删除数据。",
-          "type": "string"
-        },
-        {
-          "const": "HEAD",
-          "description": "HEAD 请求，类似于 GET，但只获取响应头。",
-          "type": "string"
-        },
-        {
-          "const": "OPTIONS",
-          "description": "OPTIONS 请求，获取服务器支持的HTTP方法。",
-          "type": "string"
-        },
-        {
-          "const": "PATCH",
-          "description": "PATCH 请求，用于部分更新数据。",
-          "type": "string"
-        }
-      ]
     },
     "IndexStep": {
       "anyOf": [
@@ -1748,113 +1729,351 @@
       ],
       "type": "object"
     },
-    "LoginField": {
-      "additionalProperties": false,
-      "description": "登录字段定义\n用于 App 生成用户输入表单",
-      "properties": {
-        "field_type": {
-          "$ref": "#/$defs/LoginFieldType",
-          "default": "text",
-          "description": "字段类型"
-        },
-        "key": {
-          "description": "字段标识符（变量名）",
-          "type": "string"
-        },
-        "label": {
-          "description": "字段显示名称",
-          "type": "string"
-        },
-        "placeholder": {
-          "description": "占位符文本",
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "required": {
-          "default": true,
-          "description": "是否必填",
-          "type": "boolean"
-        }
-      },
-      "required": [
-        "key",
-        "label"
-      ],
-      "type": "object"
-    },
-    "LoginFieldType": {
-      "description": "登录字段类型",
+    "LoginFlow": {
+      "description": "登录流程配置\n\n通过 `type` 字段区分三种完全不同的登录模式：\n- `script`: 脚本交互模式（覆盖 Legado 的 loginUi + loginUrl 场景）\n- `webview`: 网页模式\n- `credential`: 凭证模式（支持 Cookie、Header 等多种认证方式）\n\n# 示例\n\n## 脚本交互模式\n```yaml\nlogin:\n  type: script\n  ui:\n    - type: text\n      key: username\n      label: \"用户名\"\n    - type: password\n      key: password\n      label: \"密码\"\n    - type: image\n      key: captcha_img\n      action:\n        name: refresh_captcha\n    - type: text\n      key: captcha\n      label: \"验证码\"\n  init_script:\n    name: init_login\n  login_script:\n    name: do_login\n```\n\n## WebView 模式\n```yaml\nlogin:\n  type: webview\n  start_url: \"https://example.com/login\"\n  check_script: \"return document.querySelector('.user-info') !== null;\"\n  finish_script:\n    name: save_cookies\n```\n\n## Credential 模式（Cookie）\n```yaml\nlogin:\n  type: credential\n  tip: \"请从浏览器开发者工具中复制 Cookie\"\n  docs_url: \"https://example.com/help/cookie\"\n  storage:\n    type: cookie\n```\n\n## Credential 模式（Header Token）\n```yaml\nlogin:\n  type: credential\n  tip: \"请输入您的 API Token\"\n  fields:\n    - key: token\n      label: \"API Token\"\n      field_type: password\n  storage:\n    type: header\n    header_name: \"Authorization\"\n    header_template: \"Bearer {{ token }}\"\n```",
       "oneOf": [
         {
-          "const": "text",
-          "description": "普通文本",
-          "type": "string"
+          "additionalProperties": false,
+          "description": "脚本交互模式\nApp 渲染原生 UI，脚本处理逻辑（覆盖 Legado 的 loginUi + loginUrl 场景）",
+          "properties": {
+            "description": {
+              "description": "流程的功能描述",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "init_script": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ScriptStep"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "界面打开时自动执行的脚本\n例如：自动加载图形验证码，或获取初始 Cookie"
+            },
+            "login_script": {
+              "$ref": "#/$defs/ScriptStep",
+              "description": "用户点击界面底部\"登录/确认\"按钮时执行的主逻辑脚本"
+            },
+            "type": {
+              "const": "script",
+              "type": "string"
+            },
+            "ui": {
+              "description": "定义原生界面元素（输入框、按钮、验证码图片）",
+              "items": {
+                "$ref": "#/$defs/LoginUIElement"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "type",
+            "ui",
+            "login_script"
+          ],
+          "type": "object"
         },
         {
-          "const": "password",
-          "description": "密码（隐藏显示）",
-          "type": "string"
+          "additionalProperties": false,
+          "description": "网页模式\n打开浏览器，用户操作网页，脚本检测状态",
+          "properties": {
+            "allow_redirects": {
+              "default": true,
+              "description": "是否允许重定向（默认 true）",
+              "type": "boolean"
+            },
+            "check_interval_ms": {
+              "description": "检测间隔（毫秒，默认 500）",
+              "format": "uint32",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "check_script": {
+              "description": "周期性执行的检测 JavaScript\n返回 true 代表登录成功\n例如: `return document.querySelector('.user-info') !== null;`",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "description": {
+              "description": "流程的功能描述",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "finish_script": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ScriptStep"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "登录成功后（WebView 关闭前）执行的整理脚本\n用于从 WebView 提取特定 Cookie/LocalStorage 并保存到全局变量"
+            },
+            "inject_script": {
+              "description": "页面加载完成后注入的 JavaScript\n用于处理网页内的 DOM，如点击协议、自动填表等",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "start_url": {
+              "$ref": "#/$defs/Template",
+              "description": "登录起始页 URL"
+            },
+            "timeout_seconds": {
+              "description": "登录超时时间（秒，默认 300）",
+              "format": "uint32",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "type": {
+              "const": "webview",
+              "type": "string"
+            },
+            "user_agent": {
+              "description": "自定义 User-Agent（可选）",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "type",
+            "start_url"
+          ],
+          "type": "object"
         },
         {
-          "const": "textarea",
-          "description": "多行文本（如 Cookie 字符串、Token）",
-          "type": "string"
+          "additionalProperties": false,
+          "description": "凭证模式\n手动粘贴 Cookie/Token/Header 等认证信息",
+          "properties": {
+            "description": {
+              "description": "流程的功能描述",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "docs_url": {
+              "description": "获取教程的链接（可选）",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "fields": {
+              "description": "需要用户提供的凭证字段（可选）\n如果不提供，默认显示一个多行文本框用于输入 Cookie",
+              "items": {
+                "$ref": "#/$defs/CredentialField"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            },
+            "storage": {
+              "description": "凭证存储方式（可选）\n定义如何将用户输入的凭证应用到 HTTP 请求\n如果不提供，默认作为 Cookie 处理",
+              "items": {
+                "$ref": "#/$defs/CredentialStorage"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            },
+            "tip": {
+              "description": "提示用户如何获取凭证的说明文案",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "type": {
+              "const": "credential",
+              "type": "string"
+            },
+            "validate_script": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ScriptStep"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "凭证验证脚本（可选，验证用户输入的凭证是否有效）"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
         }
       ]
     },
-    "LoginFlow": {
-      "description": "登录流程 (LoginFlow)\n提供三种常见登录模式\n\n# 示例\n\n```yaml\n# WebView 登录\nlogin:\n  webview:\n    url: \"https://example.com/login\"\n\n# 表单登录\nlogin:\n  form:\n    url: \"https://example.com/api/login\"\n    method: POST\n    fields:\n      username: \"{{ username }}\"\n      password: \"{{ password }}\"\n\n# 凭证登录\nlogin:\n  credential:\n    type: cookie\n    fields:\n      - key: session_id\n        label: \"会话ID\"\n```",
+    "LoginUIElement": {
+      "description": "登录界面 UI 元素定义\n\n仅用于 Script 模式，定义 App 原生渲染的界面元素",
       "oneOf": [
         {
-          "description": "WebView 登录\nApp 打开内嵌浏览器，用户手动登录",
+          "additionalProperties": false,
+          "description": "文本输入框",
           "properties": {
-            "webview": {
-              "$ref": "#/$defs/WebViewLogin"
+            "key": {
+              "description": "字段标识符（变量名，脚本通过此 key 获取用户输入）",
+              "type": "string"
+            },
+            "label": {
+              "description": "字段显示名称",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "placeholder": {
+              "description": "占位符文本",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "required": {
+              "default": true,
+              "description": "是否必填（默认 true）",
+              "type": "boolean"
+            },
+            "type": {
+              "const": "text",
+              "type": "string"
             }
           },
           "required": [
-            "webview"
+            "type",
+            "key"
           ],
           "type": "object"
         },
         {
-          "description": "表单登录\n通过 HTTP 表单提交用户凭证",
+          "additionalProperties": false,
+          "description": "密码输入框（隐藏显示）",
           "properties": {
-            "form": {
-              "$ref": "#/$defs/FormLogin"
+            "key": {
+              "description": "字段标识符（变量名，脚本通过此 key 获取用户输入）",
+              "type": "string"
+            },
+            "label": {
+              "description": "字段显示名称",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "placeholder": {
+              "description": "占位符文本",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "required": {
+              "default": true,
+              "description": "是否必填（默认 true）",
+              "type": "boolean"
+            },
+            "type": {
+              "const": "password",
+              "type": "string"
             }
           },
           "required": [
-            "form"
+            "type",
+            "key"
           ],
           "type": "object"
         },
         {
-          "description": "凭证登录\n用户手动提供认证信息（Cookie/Token等）",
+          "additionalProperties": false,
+          "description": "功能按钮（如获取短信验证码）",
           "properties": {
-            "credential": {
-              "$ref": "#/$defs/CredentialLogin"
+            "action": {
+              "$ref": "#/$defs/ScriptStep",
+              "description": "点击按钮触发的脚本逻辑\n例如：获取短信验证码、刷新图形验证码"
+            },
+            "disabled": {
+              "description": "是否禁用（可选，用于条件性禁用按钮）",
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "label": {
+              "description": "按钮显示文本",
+              "type": "string"
+            },
+            "type": {
+              "const": "button",
+              "type": "string"
             }
           },
           "required": [
-            "credential"
+            "type",
+            "label",
+            "action"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "图片显示（如图形验证码）",
+          "properties": {
+            "action": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ScriptStep"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "点击图片触发的脚本（通常用于刷新验证码）"
+            },
+            "key": {
+              "description": "绑定变量名\n脚本更新此变量时，图片自动刷新",
+              "type": "string"
+            },
+            "label": {
+              "description": "图片显示描述（可选）",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "type": {
+              "const": "image",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "key"
           ],
           "type": "object"
         }
-      ],
-      "properties": {
-        "description": {
-          "description": "流程的功能描述",
-          "type": [
-            "string",
-            "null"
-          ]
-        }
-      },
-      "type": "object",
-      "unevaluatedProperties": false
+      ]
     },
     "MediaType": {
       "description": "用于指定规则适用的媒体内容类型。",
@@ -1916,7 +2135,7 @@
         },
         "media_type": {
           "$ref": "#/$defs/MediaType",
-          "description": "规则主要适用的媒体类型。"
+          "description": "规则用于的媒体类型。"
         },
         "name": {
           "description": "规则名称，如“示例影视站”。",
@@ -2061,36 +2280,11 @@
       ],
       "description": "正则表达式步骤"
     },
-    "ScriptEngine": {
-      "description": "脚本引擎类型 (ScriptEngine)\n用于指定脚本执行环境的类型。",
+    "ScriptConfig": {
+      "description": "脚本完整配置",
       "oneOf": [
         {
-          "const": "rhai",
-          "description": "Rhai 脚本引擎（默认）。",
-          "type": "string"
-        },
-        {
-          "const": "javascript",
-          "description": "JavaScript 脚本引擎。",
-          "type": "string"
-        },
-        {
-          "const": "python",
-          "description": "Python 脚本引擎。",
-          "type": "string"
-        },
-        {
-          "const": "lua",
-          "description": "Lua 脚本引擎。",
-          "type": "string"
-        }
-      ]
-    },
-    "ScriptModule": {
-      "description": "脚本模块 (ScriptModule)\n定义一个脚本文件的来源。",
-      "oneOf": [
-        {
-          "description": "直接内联在规则中的代码。",
+          "description": "内联代码",
           "properties": {
             "code": {
               "type": "string"
@@ -2102,7 +2296,7 @@
           "type": "object"
         },
         {
-          "description": "相对于规则文件的脚本路径。",
+          "description": "本地文件路径（相对于规则文件）",
           "properties": {
             "file": {
               "type": "string"
@@ -2114,7 +2308,7 @@
           "type": "object"
         },
         {
-          "description": "远程URL加载的脚本。",
+          "description": "远程 URL",
           "properties": {
             "url": {
               "type": "string"
@@ -2136,62 +2330,59 @@
               "type": "null"
             }
           ],
-          "description": "脚本引擎，如果指定，则覆盖全局配置。"
+          "description": "脚本引擎（可选，默认 JavaScript）"
+        },
+        "function": {
+          "description": "要调用的函数名（可选）\n如果脚本定义了多个函数，指定要调用的函数\n默认调用 `main` 或直接执行脚本",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "params": {
+          "additionalProperties": true,
+          "description": "传递给脚本的参数（可选）",
+          "type": [
+            "object",
+            "null"
+          ]
         }
       },
-      "type": "object"
+      "type": "object",
+      "unevaluatedProperties": false
+    },
+    "ScriptEngine": {
+      "description": "脚本引擎类型\n\n指定脚本执行环境，默认为 JavaScript。",
+      "oneOf": [
+        {
+          "const": "javascript",
+          "description": "JavaScript 脚本引擎（默认，使用 Boa）",
+          "type": "string"
+        },
+        {
+          "const": "rhai",
+          "description": "Rhai 脚本引擎（轻量级，Rust 原生）",
+          "type": "string"
+        },
+        {
+          "const": "lua",
+          "description": "Lua 脚本引擎",
+          "type": "string"
+        }
+      ]
     },
     "ScriptStep": {
       "anyOf": [
         {
-          "description": "简单脚本名",
+          "description": "简单代码字符串\n直接作为脚本代码执行（使用默认引擎）",
           "type": "string"
         },
         {
-          "description": "带参数的脚本调用",
-          "properties": {
-            "name": {
-              "description": "脚本名称（`模块.函数` 或 `函数`）",
-              "type": "string"
-            },
-            "params": {
-              "additionalProperties": true,
-              "description": "脚本参数",
-              "type": [
-                "object",
-                "null"
-              ]
-            }
-          },
-          "required": [
-            "name"
-          ],
-          "type": "object"
+          "$ref": "#/$defs/ScriptConfig",
+          "description": "完整配置"
         }
       ],
-      "description": "脚本调用步骤"
-    },
-    "ScriptingConfig": {
-      "additionalProperties": false,
-      "description": "脚本配置 (ScriptingConfig)\n配置用于执行自定义逻辑的脚本环境。",
-      "properties": {
-        "engine": {
-          "$ref": "#/$defs/ScriptEngine",
-          "description": "默认脚本引擎。"
-        },
-        "modules": {
-          "additionalProperties": {
-            "$ref": "#/$defs/ScriptModule"
-          },
-          "description": "定义脚本模块，key 为模块名，用于在 `script` 步骤中调用。",
-          "type": "object"
-        }
-      },
-      "required": [
-        "engine",
-        "modules"
-      ],
-      "type": "object"
+      "description": "脚本调用步骤\n\n自包含的脚本调用定义，支持多种形式：\n\n# 示例\n\n## 最简形式：直接写代码字符串\n```yaml\nscript: \"return input.trim().toUpperCase()\"\n```\n\n## 内联代码（显式指定引擎）\n```yaml\nscript:\n  code: |\n    let result = input.split(\",\");\n    return result.map(s => s.trim());\n  engine: javascript\n```\n\n## 引用外部文件\n```yaml\nscript:\n  file: \"./scripts/login.js\"\n```\n\n## 远程脚本\n```yaml\nscript:\n  url: \"https://example.com/scripts/utils.js\"\n  function: \"processData\"\n```\n\n## 带参数调用\n```yaml\nscript:\n  code: \"return input.replace(params.from, params.to)\"\n  params:\n    from: \"old\"\n    to: \"new\"\n```"
     },
     "SearchFlow": {
       "additionalProperties": false,
@@ -2257,72 +2448,6 @@
       ],
       "description": "选择器步骤（CSS/JSONPath/XPath 通用）"
     },
-    "SuccessCheck": {
-      "description": "登录成功检测",
-      "oneOf": [
-        {
-          "description": "JSONPath 检测",
-          "properties": {
-            "expect": {
-              "description": "期望值"
-            },
-            "path": {
-              "description": "JSONPath 表达式",
-              "type": "string"
-            },
-            "type": {
-              "const": "json_path",
-              "type": "string"
-            }
-          },
-          "required": [
-            "type",
-            "path",
-            "expect"
-          ],
-          "type": "object"
-        },
-        {
-          "description": "状态码检测",
-          "properties": {
-            "expect": {
-              "description": "期望的状态码",
-              "format": "uint16",
-              "maximum": 65535,
-              "minimum": 0,
-              "type": "integer"
-            },
-            "type": {
-              "const": "status_code",
-              "type": "string"
-            }
-          },
-          "required": [
-            "type",
-            "expect"
-          ],
-          "type": "object"
-        },
-        {
-          "description": "响应包含检测",
-          "properties": {
-            "text": {
-              "description": "期望包含的字符串",
-              "type": "string"
-            },
-            "type": {
-              "const": "contains",
-              "type": "string"
-            }
-          },
-          "required": [
-            "type",
-            "text"
-          ],
-          "type": "object"
-        }
-      ]
-    },
     "Template": {
       "description": "模板字符串 (Template)\n\n支持 Tera 模板语法的字符串类型，用于在运行时进行变量插值。\n\n## 语法规范\n- 变量插值: `{{ variable }}`\n- 嵌套访问: `{{ user.name }}`, `{{ items[0] }}`\n- 过滤器: `{{ name | upper }}`\n- 条件: `{% if condition %}...{% endif %}`\n- 循环: `{% for item in items %}...{% endfor %}`\n\n## 示例\n```text\nhttps://example.com/search?q={{ keyword }}\nHello, {{ user.name }}!\n{{ items[0].title }}\n```",
       "pattern": "{{\\s*([a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*|\\[[0-9]+\\])*)\\s*}}",
@@ -2359,34 +2484,6 @@
       "required": [
         "list",
         "name",
-        "url"
-      ],
-      "type": "object"
-    },
-    "WebViewLogin": {
-      "additionalProperties": false,
-      "description": "WebView 登录配置",
-      "properties": {
-        "cookie_domain": {
-          "description": "Cookie 域名（可选，默认为 URL 的根域名）",
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "success_selector": {
-          "description": "登录成功检测选择器（可选）\n如果提供，检测该元素存在则认为登录成功",
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "url": {
-          "$ref": "#/$defs/Template",
-          "description": "登录页 URL"
-        }
-      },
-      "required": [
         "url"
       ],
       "type": "object"
@@ -2447,17 +2544,6 @@
     "meta": {
       "$ref": "#/$defs/Meta",
       "description": "规则的元数据，用于在软件中识别和展示。"
-    },
-    "scripting": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/ScriptingConfig"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "description": "脚本引擎的全局配置。"
     },
     "search": {
       "$ref": "#/$defs/SearchFlow",

@@ -1,111 +1,6 @@
 {
   "$comment": "Schema version: 1.0.0",
   "$defs": {
-    "CategoryFields": {
-      "additionalProperties": false,
-      "description": "分类字段定义",
-      "properties": {
-        "key": {
-          "description": "分类标识提取规则",
-          "type": "string"
-        },
-        "label": {
-          "description": "分类名称提取规则",
-          "type": "string"
-        },
-        "value": {
-          "description": "分类值提取规则（可选）",
-          "type": [
-            "string",
-            "null"
-          ]
-        }
-      },
-      "required": [
-        "key",
-        "label"
-      ],
-      "type": "object"
-    },
-    "CategoryItem": {
-      "additionalProperties": false,
-      "description": "分类项",
-      "properties": {
-        "key": {
-          "description": "分类唯一标识（用于请求参数）",
-          "type": "string"
-        },
-        "label": {
-          "description": "展示名称",
-          "type": "string"
-        },
-        "value": {
-          "description": "可选：请求使用的值（不提供则默认用 key）",
-          "type": [
-            "string",
-            "null"
-          ]
-        }
-      },
-      "required": [
-        "key",
-        "label"
-      ],
-      "type": "object"
-    },
-    "CategorySource": {
-      "description": "分类来源定义",
-      "oneOf": [
-        {
-          "description": "静态分类（手动配置）",
-          "properties": {
-            "items": {
-              "items": {
-                "$ref": "#/$defs/CategoryItem"
-              },
-              "type": "array"
-            },
-            "type": {
-              "const": "static",
-              "type": "string"
-            }
-          },
-          "required": [
-            "type",
-            "items"
-          ],
-          "type": "object"
-        },
-        {
-          "description": "动态分类（从页面提取）",
-          "properties": {
-            "fields": {
-              "$ref": "#/$defs/CategoryFields",
-              "description": "分类项字段定义"
-            },
-            "selector": {
-              "description": "分类列表选择器",
-              "type": "string"
-            },
-            "type": {
-              "const": "dynamic",
-              "type": "string"
-            },
-            "url": {
-              "$ref": "#/$defs/Template",
-              "description": "分类数据源 URL"
-            }
-          },
-          "required": [
-            "type",
-            "url",
-            "selector",
-            "fields"
-          ],
-          "type": "object"
-        }
-      ]
-    },
     "ChapterListRule": {
       "additionalProperties": false,
       "description": "章节列表提取规则 (ChapterListRule)\n定义如何提取章节列表",
@@ -1054,18 +949,18 @@
     },
     "DiscoveryFlow": {
       "additionalProperties": false,
-      "description": "发现页流程 (DiscoveryFlow)\n用于列表页、分类页、发现页等场景\n\n# 示例\n\n```toml\n[discovery]\nurl = \"https://example.com/category/{{ category }}?page={{ page }}\"\n\n[discovery.pagination]\npagination_type = \"page_number\"\nstart_page = 1\n\n[discovery.fields]\ntitle.steps = [{ css = \".title\" }, { filter = \"trim\" }]\nurl.steps = [{ css = \"a\" }, { attr = \"href\" }, { filter = \"absolute_url\" }]\n```",
+      "description": "发现页流程 (DiscoveryFlow)\n用于列表页、分类页、发现页等场景\n\n# 示例\n\n```toml\n[discovery]\nurl = \"https://example.com/category/{{ category }}?page={{ page }}\"\n\n[discovery.pagination]\npagination_type = \"page_number\"\nstart_page = 1\n\n[discovery.fields.title]\nsteps = [{ css = \".title\" }, { filter = \"trim\" }]\n\n[discovery.fields.url]\nsteps = [{ css = \"a\" }, { attr = \"href\" }]\n```",
       "properties": {
         "categories": {
           "anyOf": [
             {
-              "$ref": "#/$defs/CategorySource"
+              "$ref": "#/$defs/OptionList"
             },
             {
               "type": "null"
             }
           ],
-          "description": "分类来源（可选）"
+          "description": "分类列表（可选）\n静态数组或动态获取配置"
         },
         "description": {
           "description": "流程的功能描述",
@@ -1076,18 +971,22 @@
         },
         "fields": {
           "$ref": "#/$defs/ItemFields",
-          "description": "列表项字段定义"
+          "description": "将列表项映射为最终数据结构的字段提取规则"
         },
         "filters": {
           "anyOf": [
             {
-              "$ref": "#/$defs/FiltersSource"
+              "$ref": "#/$defs/FilterList"
             },
             {
               "type": "null"
             }
           ],
-          "description": "动态筛选器（可选）"
+          "description": "筛选器组列表（可选）\n静态数组或动态获取配置"
+        },
+        "list": {
+          "$ref": "#/$defs/FieldExtractor",
+          "description": "list 列表提取规则"
         },
         "pagination": {
           "anyOf": [
@@ -1107,6 +1006,55 @@
       },
       "required": [
         "url",
+        "list",
+        "fields"
+      ],
+      "type": "object"
+    },
+    "DynamicFilterList": {
+      "additionalProperties": false,
+      "description": "动态筛选器组列表配置",
+      "properties": {
+        "fields": {
+          "$ref": "#/$defs/FilterGroupFields",
+          "description": "筛选组字段提取规则"
+        },
+        "list": {
+          "$ref": "#/$defs/FieldExtractor",
+          "description": "筛选组列表提取规则"
+        },
+        "url": {
+          "$ref": "#/$defs/Template",
+          "description": "数据源 URL"
+        }
+      },
+      "required": [
+        "url",
+        "list",
+        "fields"
+      ],
+      "type": "object"
+    },
+    "DynamicOptionList": {
+      "additionalProperties": false,
+      "description": "动态选项列表配置",
+      "properties": {
+        "fields": {
+          "$ref": "#/$defs/OptionFields",
+          "description": "选项字段提取规则"
+        },
+        "list": {
+          "$ref": "#/$defs/FieldExtractor",
+          "description": "列表提取规则\n提取出选项列表的数组"
+        },
+        "url": {
+          "$ref": "#/$defs/Template",
+          "description": "数据源 URL"
+        }
+      },
+      "required": [
+        "url",
+        "list",
         "fields"
       ],
       "type": "object"
@@ -1136,7 +1084,7 @@
       "type": "object"
     },
     "ExtractStep": {
-      "description": "提取步骤 (ExtractStep)\n\n单个原子化操作。步骤类型：\n- **选择步骤**：css, json, xpath, regex\n- **过滤步骤**：filter, attr, index\n- **特殊步骤**：const, var, script",
+      "description": "提取步骤 (ExtractStep)\n\n单个原子化操作。步骤类型：\n- **选择步骤**：css, json, regex\n- **过滤步骤**：filter, attr, index\n- **特殊步骤**：const, var, script",
       "oneOf": [
         {
           "additionalProperties": false,
@@ -1161,19 +1109,6 @@
           },
           "required": [
             "json"
-          ],
-          "type": "object"
-        },
-        {
-          "additionalProperties": false,
-          "description": "XPath 表达式（XML/HTML）",
-          "properties": {
-            "xpath": {
-              "$ref": "#/$defs/SelectorStep"
-            }
-          },
-          "required": [
-            "xpath"
           ],
           "type": "object"
         },
@@ -1258,7 +1193,7 @@
           "description": "脚本调用",
           "properties": {
             "script": {
-              "$ref": "#/$defs/ScriptStep"
+              "$ref": "#/$defs/Script"
             }
           },
           "required": [
@@ -1366,32 +1301,54 @@
     },
     "FilterGroupFields": {
       "additionalProperties": false,
-      "description": "筛选组字段定义",
+      "description": "筛选组字段定义（用于动态提取）",
       "properties": {
         "key": {
-          "description": "筛选组key提取规则",
-          "type": "string"
+          "$ref": "#/$defs/FieldExtractor",
+          "description": "筛选组标识提取规则"
+        },
+        "multiselect": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FieldExtractor"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "是否多选提取规则（可选）"
         },
         "name": {
-          "description": "筛选组名称提取规则",
-          "type": "string"
+          "$ref": "#/$defs/FieldExtractor",
+          "description": "筛选组名称提取规则"
         },
-        "option_fields": {
-          "$ref": "#/$defs/FilterOptionFields",
-          "description": "选项字段定义"
-        },
-        "options_selector": {
-          "description": "选项列表选择器",
-          "type": "string"
+        "options": {
+          "$ref": "#/$defs/NestedOptionList",
+          "description": "选项列表配置"
         }
       },
       "required": [
-        "name",
         "key",
-        "options_selector",
-        "option_fields"
+        "name",
+        "options"
       ],
       "type": "object"
+    },
+    "FilterList": {
+      "anyOf": [
+        {
+          "description": "静态筛选器组列表",
+          "items": {
+            "$ref": "#/$defs/FilterGroup"
+          },
+          "type": "array"
+        },
+        {
+          "$ref": "#/$defs/DynamicFilterList",
+          "description": "动态获取配置"
+        }
+      ],
+      "description": "筛选器组列表\n\n支持静态定义或从数据源动态获取\n\n# 示例\n\n## 静态定义\n```toml\n[[filters]]\nkey = \"year\"\nname = \"年份\"\noptions = [\n  { key = \"2024\", name = \"2024年\" },\n  { key = \"2023\", name = \"2023年\" },\n]\n\n[[filters]]\nkey = \"area\"\nname = \"地区\"\noptions = [\n  { key = \"cn\", name = \"中国\" },\n  { key = \"us\", name = \"美国\" },\n]\n```\n\n## 动态获取\n```toml\n[filters]\nurl = \"https://example.com/filters\"\nlist.steps = [{ css = \".filter-group\" }]\n\n[filters.fields]\nkey.steps = [{ attr = \"data-key\" }]\nname.steps = [{ css = \".group-name\" }]\n\n[filters.fields.options]\nlist.steps = [{ css = \".filter-option\" }]\n\n[filters.fields.options.fields]\nkey.steps = [{ attr = \"data-value\" }]\nname.steps = [{ css = \"text()\" }]\n```"
     },
     "FilterOption": {
       "additionalProperties": false,
@@ -1416,18 +1373,18 @@
       "additionalProperties": false,
       "description": "筛选选项字段定义",
       "properties": {
-        "name": {
-          "description": "选项名称提取规则",
-          "type": "string"
+        "key": {
+          "$ref": "#/$defs/FieldExtractor",
+          "description": "选项标识/值提取规则"
         },
-        "value": {
-          "description": "选项值提取规则",
-          "type": "string"
+        "name": {
+          "$ref": "#/$defs/FieldExtractor",
+          "description": "选项名称提取规则"
         }
       },
       "required": [
-        "name",
-        "value"
+        "key",
+        "name"
       ],
       "type": "object"
     },
@@ -1446,59 +1403,6 @@
         }
       ],
       "description": "过滤器步骤"
-    },
-    "FiltersSource": {
-      "description": "筛选器来源定义",
-      "oneOf": [
-        {
-          "description": "静态筛选组",
-          "properties": {
-            "groups": {
-              "items": {
-                "$ref": "#/$defs/FilterGroup"
-              },
-              "type": "array"
-            },
-            "type": {
-              "const": "static",
-              "type": "string"
-            }
-          },
-          "required": [
-            "type",
-            "groups"
-          ],
-          "type": "object"
-        },
-        {
-          "description": "动态筛选组（从页面提取）",
-          "properties": {
-            "fields": {
-              "$ref": "#/$defs/FilterGroupFields",
-              "description": "筛选组字段定义"
-            },
-            "selector": {
-              "description": "筛选组列表选择器",
-              "type": "string"
-            },
-            "type": {
-              "const": "dynamic",
-              "type": "string"
-            },
-            "url": {
-              "$ref": "#/$defs/Template",
-              "description": "筛选器数据源 URL"
-            }
-          },
-          "required": [
-            "type",
-            "url",
-            "selector",
-            "fields"
-          ],
-          "type": "object"
-        }
-      ]
     },
     "HttpConfig": {
       "additionalProperties": false,
@@ -1730,7 +1634,7 @@
       "type": "object"
     },
     "LoginFlow": {
-      "description": "登录流程配置\n\n通过 `type` 字段区分三种完全不同的登录模式：\n- `script`: 脚本交互模式（覆盖 Legado 的 loginUi + loginUrl 场景）\n- `webview`: 网页模式\n- `credential`: 凭证模式（支持 Cookie、Header 等多种认证方式）\n\n# 示例\n\n## 脚本交互模式\n```yaml\nlogin:\n  type: script\n  ui:\n    - type: text\n      key: username\n      label: \"用户名\"\n    - type: password\n      key: password\n      label: \"密码\"\n    - type: image\n      key: captcha_img\n      action:\n        name: refresh_captcha\n    - type: text\n      key: captcha\n      label: \"验证码\"\n  init_script:\n    name: init_login\n  login_script:\n    name: do_login\n```\n\n## WebView 模式\n```yaml\nlogin:\n  type: webview\n  start_url: \"https://example.com/login\"\n  check_script: \"return document.querySelector('.user-info') !== null;\"\n  finish_script:\n    name: save_cookies\n```\n\n## Credential 模式（Cookie）\n```yaml\nlogin:\n  type: credential\n  tip: \"请从浏览器开发者工具中复制 Cookie\"\n  docs_url: \"https://example.com/help/cookie\"\n  storage:\n    type: cookie\n```\n\n## Credential 模式（Header Token）\n```yaml\nlogin:\n  type: credential\n  tip: \"请输入您的 API Token\"\n  fields:\n    - key: token\n      label: \"API Token\"\n      field_type: password\n  storage:\n    type: header\n    header_name: \"Authorization\"\n    header_template: \"Bearer {{ token }}\"\n```",
+      "description": "登录流程配置\n\n通过 `type` 字段区分三种完全不同的登录模式：\n- `script`: 脚本交互模式（覆盖 Legado 的 loginUi + loginUrl 场景）\n- `webview`: 网页模式\n- `credential`: 凭证模式（支持 Cookie、Header 等多种认证方式）\n\n# 示例\n\n## 脚本交互模式\n```toml\n[login]\ntype = \"script\"\nui = [\n  { type = \"text\", key = \"username\", label = \"用户名\" },\n  { type = \"password\", key = \"password\", label = \"密码\" },\n  { type = \"image\", key = \"captcha_img\", action = { name = \"refresh_captcha\" } },\n  { type = \"text\", key = \"captcha\", label = \"验证码\" },\n]\ninit_script = { name = \"init_login\" }\nlogin_script = { name = \"do_login\" }\n```\n\n## WebView 模式\n```toml\n[login]\ntype = \"webview\"\nstart_url = \"https://example.com/login\"\ncheck_script = \"return document.querySelector('.user-info') !== null;\"\nfinish_script = { name = \"save_cookies\" }\n```\n\n## Credential 模式（Cookie）\n```toml\n[login]\ntype = \"credential\"\ntip = \"请从浏览器开发者工具中复制 Cookie\"\ndocs_url = \"https://example.com/help/cookie\"\nstorage = [{ type = \"cookie\" }]\n```\n\n## Credential 模式（Header Token）\n```toml\n[login]\ntype = \"credential\"\ntip = \"请输入您的 API Token\"\nfields = [{ key = \"token\", label = \"API Token\", field_type = \"password\" }]\nstorage = [{ type = \"header\", header_name = \"Authorization\", header_template = \"Bearer {{ token }}\" }]\n```",
       "oneOf": [
         {
           "additionalProperties": false,
@@ -1746,7 +1650,7 @@
             "init_script": {
               "anyOf": [
                 {
-                  "$ref": "#/$defs/ScriptStep"
+                  "$ref": "#/$defs/Script"
                 },
                 {
                   "type": "null"
@@ -1755,7 +1659,7 @@
               "description": "界面打开时自动执行的脚本\n例如：自动加载图形验证码，或获取初始 Cookie"
             },
             "login_script": {
-              "$ref": "#/$defs/ScriptStep",
+              "$ref": "#/$defs/Script",
               "description": "用户点击界面底部\"登录/确认\"按钮时执行的主逻辑脚本"
             },
             "type": {
@@ -1812,7 +1716,7 @@
             "finish_script": {
               "anyOf": [
                 {
-                  "$ref": "#/$defs/ScriptStep"
+                  "$ref": "#/$defs/Script"
                 },
                 {
                   "type": "null"
@@ -1910,7 +1814,7 @@
             "validate_script": {
               "anyOf": [
                 {
-                  "$ref": "#/$defs/ScriptStep"
+                  "$ref": "#/$defs/Script"
                 },
                 {
                   "type": "null"
@@ -2010,7 +1914,7 @@
           "description": "功能按钮（如获取短信验证码）",
           "properties": {
             "action": {
-              "$ref": "#/$defs/ScriptStep",
+              "$ref": "#/$defs/Script",
               "description": "点击按钮触发的脚本逻辑\n例如：获取短信验证码、刷新图形验证码"
             },
             "disabled": {
@@ -2043,7 +1947,7 @@
             "action": {
               "anyOf": [
                 {
-                  "$ref": "#/$defs/ScriptStep"
+                  "$ref": "#/$defs/Script"
                 },
                 {
                   "type": "null"
@@ -2159,6 +2063,97 @@
         "media_type"
       ],
       "type": "object"
+    },
+    "NestedOptionList": {
+      "additionalProperties": false,
+      "description": "嵌套选项列表（用于筛选组内的选项）",
+      "properties": {
+        "fields": {
+          "$ref": "#/$defs/FilterOptionFields",
+          "description": "选项字段提取规则"
+        },
+        "list": {
+          "$ref": "#/$defs/FieldExtractor",
+          "description": "选项列表提取规则"
+        }
+      },
+      "required": [
+        "list",
+        "fields"
+      ],
+      "type": "object"
+    },
+    "OptionFields": {
+      "additionalProperties": false,
+      "description": "选项字段定义（用于动态提取）",
+      "properties": {
+        "key": {
+          "$ref": "#/$defs/FieldExtractor",
+          "description": "选项标识提取规则"
+        },
+        "label": {
+          "$ref": "#/$defs/FieldExtractor",
+          "description": "显示名称提取规则"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FieldExtractor"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "请求值提取规则（可选）"
+        }
+      },
+      "required": [
+        "key",
+        "label"
+      ],
+      "type": "object"
+    },
+    "OptionItem": {
+      "additionalProperties": false,
+      "description": "选项项（静态定义）",
+      "properties": {
+        "key": {
+          "description": "选项标识（用于 URL 参数）",
+          "type": "string"
+        },
+        "label": {
+          "description": "显示名称",
+          "type": "string"
+        },
+        "value": {
+          "description": "请求值（可选，默认使用 key）",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "key",
+        "label"
+      ],
+      "type": "object"
+    },
+    "OptionList": {
+      "anyOf": [
+        {
+          "description": "静态选项列表",
+          "items": {
+            "$ref": "#/$defs/OptionItem"
+          },
+          "type": "array"
+        },
+        {
+          "$ref": "#/$defs/DynamicOptionList",
+          "description": "动态获取配置"
+        }
+      ],
+      "description": "选项列表\n\n支持静态定义或从数据源动态获取\n\n# 示例\n\n## 静态定义\n```toml\ncategories = [\n  { key = \"movie\", label = \"电影\" },\n  { key = \"tv\", label = \"电视剧\" },\n]\n```\n\n## 动态获取（HTML）\n```toml\n[categories]\nurl = \"https://example.com/categories\"\nlist.steps = [{ css = \".category-item\" }]\n\n[categories.fields]\nkey.steps = [{ attr = \"data-id\" }]\nlabel.steps = [{ css = \".name\" }]\n```\n\n## 动态获取（JSON API）\n```toml\n[categories]\nurl = \"https://api.example.com/categories\"\nlist.steps = [{ json = \"$.data.categories[*]\" }]\n\n[categories.fields]\nkey.steps = [{ json = \"$.id\" }]\nlabel.steps = [{ json = \"$.name\" }]\n```"
     },
     "PaginationConfig": {
       "additionalProperties": false,
@@ -2280,6 +2275,19 @@
       ],
       "description": "正则表达式步骤"
     },
+    "Script": {
+      "anyOf": [
+        {
+          "description": "简单代码字符串\n直接作为脚本代码执行（使用默认引擎）",
+          "type": "string"
+        },
+        {
+          "$ref": "#/$defs/ScriptConfig",
+          "description": "完整配置"
+        }
+      ],
+      "description": "脚本调用配置\n\n自包含的脚本定义，支持多种形式：\n\n# 示例\n\n## 最简形式：直接写代码字符串\n```toml\nscript = \"return input.trim().toUpperCase()\"\n```\n\n## 内联代码（显式指定引擎）\n```toml\n[script]\ncode = '''\nlet result = input.split(\",\");\nreturn result.map(s => s.trim());\n'''\nengine = \"javascript\"\n```\n\n## 引用外部文件\n```toml\nscript = { file = \"./scripts/login.js\" }\n```\n\n## 远程脚本\n```toml\nscript = { url = \"https://example.com/scripts/utils.js\", function = \"processData\" }\n```\n\n## 带参数调用\n```toml\n[script]\ncode = \"return input.replace(params.from, params.to)\"\nparams = { from = \"old\", to = \"new\" }\n```"
+    },
     "ScriptConfig": {
       "description": "脚本完整配置",
       "oneOf": [
@@ -2371,19 +2379,6 @@
         }
       ]
     },
-    "ScriptStep": {
-      "anyOf": [
-        {
-          "description": "简单代码字符串\n直接作为脚本代码执行（使用默认引擎）",
-          "type": "string"
-        },
-        {
-          "$ref": "#/$defs/ScriptConfig",
-          "description": "完整配置"
-        }
-      ],
-      "description": "脚本调用步骤\n\n自包含的脚本调用定义，支持多种形式：\n\n# 示例\n\n## 最简形式：直接写代码字符串\n```yaml\nscript: \"return input.trim().toUpperCase()\"\n```\n\n## 内联代码（显式指定引擎）\n```yaml\nscript:\n  code: |\n    let result = input.split(\",\");\n    return result.map(s => s.trim());\n  engine: javascript\n```\n\n## 引用外部文件\n```yaml\nscript:\n  file: \"./scripts/login.js\"\n```\n\n## 远程脚本\n```yaml\nscript:\n  url: \"https://example.com/scripts/utils.js\"\n  function: \"processData\"\n```\n\n## 带参数调用\n```yaml\nscript:\n  code: \"return input.replace(params.from, params.to)\"\n  params:\n    from: \"old\"\n    to: \"new\"\n```"
-    },
     "SearchFlow": {
       "additionalProperties": false,
       "description": "搜索流程 (SearchFlow)\n实现搜索功能\n\n# 示例\n\n```toml\n[search]\nurl = \"https://example.com/search?q={{ keyword }}&page={{ page }}\"\n\n[search.pagination]\npagination_type = \"page_number\"\n\n[search.fields]\ntitle.steps = [{ css = \".title\" }]\nurl.steps = [{ css = \"a\" }, { attr = \"href\" }]\n```",
@@ -2397,7 +2392,11 @@
         },
         "fields": {
           "$ref": "#/$defs/ItemFields",
-          "description": "列表项字段定义"
+          "description": "将列表项映射为最终数据结构的字段提取规则"
+        },
+        "list": {
+          "$ref": "#/$defs/FieldExtractor",
+          "description": "list 列表提取规则"
         },
         "pagination": {
           "anyOf": [
@@ -2417,6 +2416,7 @@
       },
       "required": [
         "url",
+        "list",
         "fields"
       ],
       "type": "object"

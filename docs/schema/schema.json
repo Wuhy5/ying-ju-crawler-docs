@@ -1,6 +1,490 @@
 {
   "$comment": "Schema version: 1.0.0",
   "$defs": {
+    "CaptchaProvider": {
+      "description": "打码平台提供商",
+      "oneOf": [
+        {
+          "const": "two_captcha",
+          "description": "2captcha",
+          "type": "string"
+        },
+        {
+          "const": "anti_captcha",
+          "description": "Anti-Captcha",
+          "type": "string"
+        },
+        {
+          "const": "cap_solver",
+          "description": "CapSolver",
+          "type": "string"
+        },
+        {
+          "const": "custom",
+          "description": "自定义服务",
+          "type": "string"
+        }
+      ]
+    },
+    "ChallengeConfig": {
+      "additionalProperties": false,
+      "description": "人机验证处理配置\n\n定义如何检测和处理各种反爬验证机制\n\n# 示例\n\n## Cloudflare 验证\n```toml\n[challenge]\nenabled = true\n\n[[challenge.detectors]]\ntype = \"cloudflare\"\n\n[challenge.handler]\ntype = \"webview\"\ntimeout_seconds = 120\nsuccess_check = \"return !document.body.innerHTML.includes('Just a moment');\"\n```\n\n## 自定义验证检测\n```toml\n[challenge]\nenabled = true\n\n[[challenge.detectors]]\ntype = \"custom\"\nstatus_codes = [403, 503]\nbody_patterns = [\"验证码\", \"human verification\"]\n\n[challenge.handler]\ntype = \"webview\"\n```",
+      "properties": {
+        "cache_duration": {
+          "description": "验证通过后的凭证缓存时间（秒）\n在此时间内不会重新触发验证",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "detectors": {
+          "description": "验证检测器列表\n按顺序检查，首个匹配的触发处理",
+          "items": {
+            "$ref": "#/$defs/ChallengeDetector"
+          },
+          "type": "array"
+        },
+        "enabled": {
+          "default": true,
+          "description": "是否启用验证处理（默认 true）",
+          "type": "boolean"
+        },
+        "handler": {
+          "$ref": "#/$defs/ChallengeHandler",
+          "description": "验证处理器"
+        },
+        "max_attempts": {
+          "default": 3,
+          "description": "最大验证尝试次数（默认 3）",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "detectors",
+        "handler"
+      ],
+      "type": "object"
+    },
+    "ChallengeDetector": {
+      "description": "验证检测器\n\n判断响应是否为人机验证页面",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "Cloudflare 验证检测（自动识别）",
+          "properties": {
+            "extra_patterns": {
+              "description": "额外的检测模式（补充默认检测）",
+              "items": {
+                "type": "string"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            },
+            "type": {
+              "const": "cloudflare",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "reCAPTCHA 检测",
+          "properties": {
+            "type": {
+              "const": "recaptcha",
+              "type": "string"
+            },
+            "version": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/RecaptchaVersion"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "reCAPTCHA 版本（v2 或 v3）"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "hCaptcha 检测",
+          "properties": {
+            "type": {
+              "const": "hcaptcha",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "自定义检测规则",
+          "properties": {
+            "body_patterns": {
+              "description": "响应体包含的文本模式",
+              "items": {
+                "type": "string"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            },
+            "detect_script": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Script"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "自定义检测脚本\n输入：响应对象，返回 true 表示检测到验证"
+            },
+            "headers": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "description": "响应头匹配规则\nkey: 头名称, value: 匹配模式（支持正则）",
+              "type": [
+                "object",
+                "null"
+              ]
+            },
+            "status_codes": {
+              "description": "触发验证的 HTTP 状态码",
+              "items": {
+                "format": "uint16",
+                "maximum": 65535,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            },
+            "type": {
+              "const": "custom",
+              "type": "string"
+            },
+            "url_pattern": {
+              "description": "URL 匹配模式（正则）",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "ChallengeHandler": {
+      "description": "验证处理器\n\n定义如何处理检测到的人机验证",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "WebView 手动验证\n打开浏览器让用户完成验证",
+          "properties": {
+            "check_interval_ms": {
+              "description": "验证成功检测间隔（毫秒，默认 500）",
+              "format": "uint32",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "extract_cookies": {
+              "description": "需要提取的 Cookie 名称\n验证通过后自动保存这些 Cookie",
+              "items": {
+                "type": "string"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            },
+            "finish_script": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Script"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "验证完成后执行的脚本\n用于提取和保存验证凭证"
+            },
+            "success_check": {
+              "description": "验证成功检测脚本\n返回 true 表示验证完成",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "timeout_seconds": {
+              "default": 120,
+              "description": "验证超时时间（秒，默认 120）",
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "tip": {
+              "description": "提示用户的说明文案",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "type": {
+              "const": "webview",
+              "type": "string"
+            },
+            "user_agent": {
+              "description": "自定义 User-Agent",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "自动重试\n等待后重试请求（适用于 JS Challenge）",
+          "properties": {
+            "backoff_factor": {
+              "description": "每次重试的延迟倍增因子（默认 1.5）",
+              "format": "float",
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "delay_ms": {
+              "default": 5000,
+              "description": "重试前等待时间（毫秒，默认 5000）",
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "max_retries": {
+              "default": 3,
+              "description": "最大重试次数（默认 3）",
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": {
+              "const": "retry",
+              "type": "string"
+            },
+            "use_webview": {
+              "default": false,
+              "description": "重试时使用 WebView 渲染\n某些 JS Challenge 需要完整的浏览器环境",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Cookie 注入\n使用预设的验证 Cookie",
+          "oneOf": [
+            {
+              "description": "从用户输入获取",
+              "properties": {
+                "user_input": {
+                  "properties": {
+                    "cookie_names": {
+                      "description": "需要的 Cookie 名称列表",
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "tip": {
+                      "description": "提示用户的说明",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "cookie_names"
+                  ],
+                  "type": "object"
+                }
+              },
+              "required": [
+                "user_input"
+              ],
+              "type": "object"
+            },
+            {
+              "description": "从配置文件读取",
+              "properties": {
+                "config": {
+                  "properties": {
+                    "cookies": {
+                      "description": "Cookie 字符串或键值对",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "cookies"
+                  ],
+                  "type": "object"
+                }
+              },
+              "required": [
+                "config"
+              ],
+              "type": "object"
+            },
+            {
+              "description": "从脚本获取",
+              "properties": {
+                "script": {
+                  "$ref": "#/$defs/Script"
+                }
+              },
+              "required": [
+                "script"
+              ],
+              "type": "object"
+            }
+          ],
+          "properties": {
+            "type": {
+              "const": "cookie",
+              "type": "string"
+            },
+            "validate_script": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Script"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Cookie 过期检测\n返回 true 表示 Cookie 有效"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object",
+          "unevaluatedProperties": false
+        },
+        {
+          "additionalProperties": false,
+          "description": "外部服务\n调用第三方打码平台",
+          "properties": {
+            "api_key": {
+              "$ref": "#/$defs/Template",
+              "description": "API 密钥（支持模板变量）"
+            },
+            "endpoint": {
+              "description": "API 端点（可选，用于自建服务）",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "extra_params": {
+              "additionalProperties": true,
+              "description": "额外参数",
+              "type": [
+                "object",
+                "null"
+              ]
+            },
+            "provider": {
+              "$ref": "#/$defs/CaptchaProvider",
+              "description": "服务商类型"
+            },
+            "timeout_seconds": {
+              "default": 120,
+              "description": "请求超时时间（秒，默认 120）",
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": {
+              "const": "external",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "provider",
+            "api_key"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "自定义脚本处理",
+          "properties": {
+            "script": {
+              "$ref": "#/$defs/Script",
+              "description": "处理脚本\n输入：请求上下文和响应，输出：处理后的凭证"
+            },
+            "timeout_seconds": {
+              "description": "超时时间（秒）",
+              "format": "uint32",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "type": {
+              "const": "script",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "script"
+          ],
+          "type": "object"
+        }
+      ]
+    },
     "ChapterListRule": {
       "additionalProperties": false,
       "description": "章节列表提取规则 (ChapterListRule)\n定义如何提取章节列表",
@@ -2241,6 +2725,14 @@
       ],
       "type": "object"
     },
+    "RecaptchaVersion": {
+      "description": "reCAPTCHA 版本",
+      "enum": [
+        "v2",
+        "v3"
+      ],
+      "type": "string"
+    },
     "RegexStep": {
       "anyOf": [
         {
@@ -2493,6 +2985,17 @@
   "additionalProperties": false,
   "description": "影视软件爬虫规则 (CrawlerRule)",
   "properties": {
+    "challenge": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ChallengeConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "人机验证/反爬挑战处理配置"
+    },
     "content": {
       "anyOf": [
         {

@@ -1,82 +1,416 @@
+---
+sidebar_position: 4
+---
+
 # 脚本配置参考
 
-脚本配置允许使用自定义脚本处理复杂的数据提取和转换。
+脚本允许使用自定义代码处理复杂的数据提取、转换和交互逻辑。
 
 ## 基本结构
 
-```toml
-[scripting]
-engine = "rhai"
+脚本使用内联方式配置，直接嵌入到需要使用脚本的位置：
 
-[scripting.modules.main]
+```toml
+# 简单脚本（字符串形式）
+some_field.steps = [
+    { css = ".data" },
+    { script = "return data.trim();" }
+]
+
+# 脚本配置对象
+[login.login_script]
+code = '''
+const result = await http.post("/api/login", inputs);
+return { success: result.code === 0 };
+'''
+```
+
+## Script 类型
+
+### 字符串脚本
+
+适用于简单的转换逻辑：
+
+```toml
+# 直接写脚本代码
+process.steps = [
+    { script = "return data.toUpperCase();" }
+]
+```
+
+### ScriptConfig 对象
+
+适用于复杂脚本或需要额外配置：
+
+```toml
+[some_section.some_script]
+engine = "javascript"  # 可选，默认 javascript
+code = '''
+// 多行复杂脚本
+async function process() {
+    const response = await http.get("https://api.example.com/data");
+    if (response.code === 0) {
+        return response.data;
+    }
+    throw new Error("请求失败");
+}
+return await process();
+'''
+```
+
+### ScriptConfig 属性
+
+| 属性 | 必需 | 说明 |
+|------|------|------|
+| `code` | 与 `file`/`url` 三选一 | 内联脚本代码 |
+| `file` | 与 `code`/`url` 三选一 | 本地文件路径（相对于规则文件） |
+| `url` | 与 `code`/`file` 三选一 | 远程脚本 URL |
+| `engine` | ❌ | 脚本引擎（默认 `javascript`） |
+| `function` | ❌ | 要调用的函数名（默认调用 `main` 或直接执行） |
+| `params` | ❌ | 传递给脚本的参数对象 |
+
+### 带参数的脚本调用
+
+```toml
+[some_section.some_script]
+code = "return input.replace(params.from, params.to)"
+params = { from = "old", to = "new" }
+```
+
+### 引用外部文件
+
+```toml
+# 本地文件
+[login.login_script]
+file = "./scripts/login.js"
+function = "doLogin"
+
+# 远程脚本
+[detail.fields.decrypt_script]
+url = "https://example.com/scripts/decrypt.js"
+function = "decryptUrl"
+```
+
+## 脚本引擎
+
+| 引擎 | 说明 | 默认 |
+|------|------|------|
+| `javascript` | JavaScript（推荐，使用 Boa） | ✅ |
+| `rhai` | Rhai 脚本（轻量级，Rust 原生） | - |
+| `lua` | Lua 脚本 | - |
+
+### JavaScript（默认）
+
+JavaScript 是默认且推荐的脚本引擎，语法熟悉、功能强大：
+
+```toml
+[login.login_script]
+# engine = "javascript"  # 可省略，默认值
+code = '''
+// ES6+ 语法
+const { username, password } = inputs;
+
+const response = await http.post("https://example.com/api/login", {
+    username,
+    password
+});
+
+if (response.code === 0) {
+    setCookie("token", response.data.token);
+    return { success: true };
+}
+
+return { 
+    success: false, 
+    message: response.message || "登录失败" 
+};
+'''
+```
+
+### Rhai
+
+Rhai 是一种轻量级嵌入式脚本语言：
+
+```toml
+[some_section.some_script]
+engine = "rhai"
 code = '''
 fn process_data(input) {
-    // 处理逻辑
+    let result = input.trim();
+    result = result.replace("old", "new");
     return result;
 }
+process_data(data)
 '''
 ```
 
-## 支持的脚本引擎
+## 脚本使用场景
 
-| 引擎 | 说明 | 特点 |
-|------|------|------|
-| `rhai` | Rhai 脚本（默认） | 轻量、安全、语法类似 Rust |
-| `javascript` | JavaScript | 广泛使用、生态丰富 |
-| `python` | Python | 语法简洁、库丰富 |
-| `lua` | Lua | 轻量、嵌入友好 |
+### 提取步骤中使用
 
-## Rhai 脚本（推荐）
-
-### 基本配置
+在 `steps` 数组中使用脚本转换数据：
 
 ```toml
-[scripting]
-engine = "rhai"
-
-[scripting.modules.main]
-code = '''
-// 定义处理函数
-fn decrypt_url(encrypted) {
-    let decoded = base64_decode(encrypted);
-    return decoded;
-}
-
-fn format_title(title) {
-    return title.trim().replace("【", "[").replace("】", "]");
-}
-'''
-```
-
-### 使用脚本
-
-```toml
-media_url.steps = [
-    { css = "script:contains('encrypt')" },
-    { regex = "encrypt\\(\"([^\"]+)\"\\)" },
-    { script = "decrypt_url" }
-]
-
+# 简单脚本
 title.steps = [
     { css = "h1" },
-    { script = "format_title" }
+    { script = "return data.trim().replace(/\\s+/g, ' ');" }
+]
+
+# 复杂处理
+[detail.fields.play_url]
+steps = [
+    { css = "script:contains('player')" },
+    { regex = "url\":\"([^\"]+)\"" }
+]
+
+# 使用脚本步骤引用函数
+play_url.steps = [
+    { css = "script:contains('player')" },
+    { script = "decrypt" }  # 引用已定义的函数
 ]
 ```
 
-### Rhai 语法示例
+### 登录流程中使用
+
+```toml
+# 初始化脚本
+[login.init_script]
+code = '''
+const captcha = await http.get("/captcha", { responseType: "base64" });
+setVar("captcha_img", captcha);
+'''
+
+# 登录脚本
+[login.login_script]
+code = '''
+const response = await http.post("/login", {
+    username: inputs.username,
+    password: inputs.password,
+    captcha: inputs.captcha
+});
+return { success: response.code === 0 };
+'''
+
+# UI 按钮动作脚本
+[[login.ui]]
+type = "button"
+label = "获取验证码"
+[login.ui.action]
+code = '''
+await http.post("/sms/send", { phone: inputs.phone });
+return true;
+'''
+```
+
+### WebView 中使用
+
+```toml
+[login]
+type = "webview"
+start_url = "https://example.com/login"
+
+# 检测登录成功
+check_script = "return document.querySelector('.user-info') !== null;"
+
+# 页面注入脚本
+inject_script = '''
+// 自动隐藏广告
+document.querySelectorAll('.ad').forEach(el => el.remove());
+'''
+
+# 登录完成后脚本
+[login.finish_script]
+code = '''
+const token = localStorage.getItem('token');
+setHeader('Authorization', 'Bearer ' + token);
+'''
+```
+
+### 人机验证中使用
+
+```toml
+[challenge.handler]
+type = "script"
+[challenge.handler.script]
+code = '''
+// 自定义验证处理逻辑
+const result = await solveCaptcha(context.captcha_id);
+return result.token;
+'''
+```
+
+### 凭证验证中使用
+
+```toml
+[login.validate_script]
+code = '''
+const response = await http.get("/api/user/info");
+return {
+    valid: response.code === 0,
+    message: response.code !== 0 ? "凭证无效或已过期" : null
+};
+'''
+```
+
+## 内置 API
+
+### HTTP 请求
+
+```javascript
+// GET 请求
+const data = await http.get(url);
+const data = await http.get(url, { headers: { "X-Token": "xxx" } });
+const img = await http.get(url, { responseType: "base64" });
+
+// POST 请求
+const result = await http.post(url, body);
+const result = await http.post(url, body, { 
+    headers: { "Content-Type": "application/json" } 
+});
+```
+
+### 变量操作
+
+```javascript
+// 设置变量（UI 绑定）
+setVar("captcha_img", imageData);
+
+// 获取变量
+const value = getVar("some_key");
+
+// 设置 Cookie
+setCookie("name", "value");
+setCookie("name", "value", { domain: "example.com", path: "/" });
+
+// 设置 Header（后续请求自动携带）
+setHeader("Authorization", "Bearer xxx");
+```
+
+### 编码解码
+
+```javascript
+// Base64
+const encoded = base64Encode(str);
+const decoded = base64Decode(encoded);
+
+// URL 编码
+const encoded = urlEncode(str);
+const decoded = urlDecode(encoded);
+
+// JSON
+const obj = JSON.parse(jsonStr);
+const str = JSON.stringify(obj);
+```
+
+### 加密哈希
+
+```javascript
+const hash = md5(str);
+const hash = sha256(str);
+```
+
+### 正则操作
+
+```javascript
+// 匹配
+const matches = regexMatch(str, pattern);
+
+// 替换
+const result = regexReplace(str, pattern, replacement);
+```
+
+### 上下文变量
+
+脚本中可以访问以下上下文变量：
+
+| 变量 | 说明 | 可用范围 |
+|------|------|----------|
+| `data` | 当前处理的数据 | 提取步骤 |
+| `inputs` | 用户输入的表单数据 | 登录脚本 |
+| `context` | 上下文信息 | 所有脚本 |
+| `document` | DOM 文档对象 | WebView 脚本 |
+
+## JavaScript 示例
+
+### 解密播放地址
+
+```javascript
+// 解密 Base64 + URL 编码的地址
+const decrypted = urlDecode(base64Decode(data));
+return decrypted.replace(/\\/g, '');
+```
+
+### 处理 JSON 数据
+
+```javascript
+const json = JSON.parse(data);
+return json.data.list.map(item => ({
+    title: item.name,
+    url: item.link
+}));
+```
+
+### 生成签名
+
+```javascript
+const timestamp = Date.now();
+const params = {
+    ...inputs,
+    timestamp,
+    nonce: Math.random().toString(36).substring(2)
+};
+
+const sortedKeys = Object.keys(params).sort();
+const signStr = sortedKeys.map(k => `${k}=${params[k]}`).join('&');
+params.sign = md5(signStr + SECRET);
+
+return params;
+```
+
+### 格式化数据
+
+```javascript
+// 格式化播放量
+function formatCount(count) {
+    if (count >= 100000000) {
+        return (count / 100000000).toFixed(1) + '亿';
+    }
+    if (count >= 10000) {
+        return (count / 10000).toFixed(1) + '万';
+    }
+    return count.toString();
+}
+
+return formatCount(parseInt(data));
+```
+
+### 清理标题
+
+```javascript
+return data
+    .replace(/\[广告\]/g, '')
+    .replace(/【推广】/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+```
+
+## Rhai 示例
+
+### 基本语法
 
 ```rhai
-// 变量声明
+// 变量
 let x = 10;
 let name = "hello";
 let arr = [1, 2, 3];
-let obj = #{ key: "value", num: 42 };
+let obj = #{ key: "value" };
 
-// 条件语句
+// 条件
 if x > 5 {
-    print("big");
+    "big"
 } else {
-    print("small");
+    "small"
 }
 
 // 循环
@@ -84,348 +418,43 @@ for item in arr {
     print(item);
 }
 
-// 函数定义
+// 函数
 fn add(a, b) {
-    return a + b;
+    a + b
 }
-
-// 字符串操作
-let s = "hello world";
-s.len();           // 长度
-s.contains("world"); // 包含
-s.replace("world", "rhai"); // 替换
-s.split(" ");      // 分割
-s.to_upper();      // 大写
-
-// 数组操作
-arr.push(4);       // 添加
-arr.pop();         // 移除最后一个
-arr.len();         // 长度
-arr[0];            // 索引访问
 ```
 
-### 内置函数
+### 字符串处理
 
-| 函数 | 说明 |
-|------|------|
-| `base64_encode(s)` | Base64 编码 |
-| `base64_decode(s)` | Base64 解码 |
-| `url_encode(s)` | URL 编码 |
-| `url_decode(s)` | URL 解码 |
-| `md5(s)` | MD5 哈希 |
-| `sha256(s)` | SHA256 哈希 |
-| `json_parse(s)` | 解析 JSON |
-| `json_stringify(obj)` | 转为 JSON |
-| `regex_match(s, pattern)` | 正则匹配 |
-| `regex_replace(s, pattern, replacement)` | 正则替换 |
-| `http_get(url)` | HTTP GET 请求 |
-| `http_post(url, body)` | HTTP POST 请求 |
-
-## JavaScript 脚本
-
-### 基本配置
-
-```toml
-[scripting]
-engine = "javascript"
-
-[scripting.modules.main]
-code = '''
-function decrypt_url(encrypted) {
-    // 使用 CryptoJS 等库解密
-    return decrypted;
-}
-
-function parse_player_data(html) {
-    const match = html.match(/player_data\s*=\s*(\{[^}]+\})/);
-    if (match) {
-        return JSON.parse(match[1]);
-    }
-    return null;
-}
-'''
-```
-
-### 引入外部库
-
-```toml
-[scripting]
-engine = "javascript"
-
-[scripting.modules.crypto]
-url = "https://cdn.example.com/crypto-js.min.js"
-
-[scripting.modules.main]
-code = '''
-function decrypt(data) {
-    return CryptoJS.AES.decrypt(data, key).toString(CryptoJS.enc.Utf8);
-}
-'''
-```
-
-## Python 脚本
-
-### 基本配置
-
-```toml
-[scripting]
-engine = "python"
-
-[scripting.modules.main]
-code = '''
-import base64
-import json
-
-def decrypt_url(encrypted):
-    decoded = base64.b64decode(encrypted)
-    return decoded.decode('utf-8')
-
-def parse_data(html):
-    import re
-    match = re.search(r'data\s*=\s*(\{.+?\})', html)
-    if match:
-        return json.loads(match.group(1))
-    return None
-'''
-```
-
-## Lua 脚本
-
-### 基本配置
-
-```toml
-[scripting]
-engine = "lua"
-
-[scripting.modules.main]
-code = '''
-function decrypt_url(encrypted)
-    local decoded = base64.decode(encrypted)
-    return decoded
-end
-
-function format_title(title)
-    return string.gsub(title, "%s+", " ")
-end
-'''
-```
-
-## 多模块组织
-
-```toml
-[scripting]
-engine = "rhai"
-
-# 工具函数模块
-[scripting.modules.utils]
-code = '''
-fn trim_all(s) {
-    return s.trim().replace("  ", " ");
-}
-
-fn extract_number(s) {
-    let matches = regex_match(s, "\\d+");
-    if matches.len() > 0 {
-        return parse_int(matches[0]);
-    }
-    return 0;
-}
-'''
-
-# 解密模块
-[scripting.modules.crypto]
-code = '''
-fn decrypt_type1(s) {
-    return base64_decode(s);
-}
-
-fn decrypt_type2(s) {
-    // 复杂解密逻辑
-    return result;
-}
-'''
-
-# 主模块
-[scripting.modules.main]
-code = '''
-fn process_url(url) {
-    let clean = utils::trim_all(url);
-    return crypto::decrypt_type1(clean);
-}
-'''
-```
-
-## 实际应用示例
-
-### 解密播放地址
-
-```toml
-[scripting]
-engine = "rhai"
-
-[scripting.modules.main]
-code = '''
-fn decrypt_player_url(encrypted) {
-    // 1. Base64 解码
-    let decoded = base64_decode(encrypted);
-    
-    // 2. URL 解码
-    let url = url_decode(decoded);
-    
-    // 3. 处理特殊字符
-    let clean = url.replace("\\u002F", "/");
-    
-    return clean;
-}
-'''
-
-[content.fields]
-media_type = "video"
-media_url.steps = [
-    { css = "script:contains('player_aaaa')" },
-    { regex = "url\":\"([^\"]+)\"" },
-    { script = "decrypt_player_url" }
-]
-```
-
-### 处理分页数据
-
-```toml
-[scripting]
-engine = "rhai"
-
-[scripting.modules.main]
-code = '''
-fn get_total_pages(html) {
-    // 从 HTML 中提取总页数
-    let match = regex_match(html, "共(\\d+)页");
-    if match.len() > 1 {
-        return parse_int(match[1]);
-    }
-    return 1;
-}
-
-fn build_page_url(base_url, page) {
-    return base_url.replace("{page}", page.to_string());
-}
-'''
-```
-
-### 解析 JSON 播放数据
-
-```toml
-[scripting]
-engine = "rhai"
-
-[scripting.modules.main]
-code = '''
-fn parse_play_sources(json_str) {
-    let data = json_parse(json_str);
-    let sources = [];
-    
-    for source in data.sources {
-        let item = #{
-            name: source.name,
-            url: source.url,
-            type: source.type
-        };
-        sources.push(item);
-    }
-    
-    return sources;
-}
-'''
-```
-
-### 处理加密参数
-
-```toml
-[scripting]
-engine = "javascript"
-
-[scripting.modules.main]
-code = '''
-function generateSign(params) {
-    const timestamp = Date.now();
-    const nonce = Math.random().toString(36).substring(2);
-    
-    const str = Object.keys(params)
-        .sort()
-        .map(k => `${k}=${params[k]}`)
-        .join('&');
-    
-    const sign = md5(str + timestamp + nonce + SECRET_KEY);
-    
-    return {
-        ...params,
-        timestamp,
-        nonce,
-        sign
-    };
-}
-'''
-```
-
-### 格式化文本
-
-```toml
-[scripting]
-engine = "rhai"
-
-[scripting.modules.main]
-code = '''
-fn format_duration(seconds) {
-    let h = seconds / 3600;
-    let m = (seconds % 3600) / 60;
-    let s = seconds % 60;
-    
-    if h > 0 {
-        return `${h}:${m.to_string().pad_left(2, '0')}:${s.to_string().pad_left(2, '0')}`;
-    }
-    return `${m}:${s.to_string().pad_left(2, '0')}`;
-}
-
-fn format_count(count) {
-    if count >= 100000000 {
-        return `${(count / 100000000).round(1)}亿`;
-    }
-    if count >= 10000 {
-        return `${(count / 10000).round(1)}万`;
-    }
-    return count.to_string();
-}
-
-fn clean_title(title) {
-    // 移除广告标识
-    let clean = title
-        .replace("[广告]", "")
-        .replace("【推广】", "")
-        .trim();
-    
-    // 限制长度
-    if clean.len() > 50 {
-        return clean.sub_string(0, 47) + "...";
-    }
-    return clean;
-}
-'''
+```rhai
+let s = data;
+s = s.trim();
+s = s.replace("old", "new");
+s = s.to_upper();
+return s;
 ```
 
 ## JSON 格式示例
 
+### ScriptConfig
+
 ```json
 {
-  "scripting": {
-    "engine": "rhai",
-    "modules": {
-      "main": {
-        "code": "fn process(input) {\n    return input.trim();\n}"
-      },
-      "utils": {
-        "code": "fn helper(x) {\n    return x * 2;\n}"
-      }
-    }
+  "login_script": {
+    "engine": "javascript",
+    "code": "const res = await http.post('/login', inputs);\nreturn { success: res.code === 0 };"
   }
+}
+```
+
+### 内联脚本
+
+```json
+{
+  "steps": [
+    { "css": ".title" },
+    { "script": "return data.trim();" }
+  ]
 }
 ```
 
@@ -433,38 +462,32 @@ fn clean_title(title) {
 
 ### 日志输出
 
-```rhai
-fn debug_process(input) {
-    print("Input: " + input);  // 输出日志
-    
-    let result = process(input);
-    print("Result: " + result);
-    
-    return result;
-}
+```javascript
+console.log("当前数据:", data);
+console.log("输入参数:", JSON.stringify(inputs));
 ```
 
 ### 错误处理
 
-```rhai
-fn safe_process(input) {
-    try {
-        return process(input);
-    } catch (e) {
-        print("Error: " + e);
-        return "";
-    }
+```javascript
+try {
+    const result = JSON.parse(data);
+    return result.value;
+} catch (e) {
+    console.error("解析失败:", e.message);
+    return null;
 }
 ```
 
-## 安全注意事项
+## 安全限制
 
-1. **沙箱执行**：脚本在沙箱环境中执行，无法访问系统资源
-2. **超时限制**：脚本执行有时间限制，避免无限循环
+1. **沙箱执行**：脚本在隔离环境中运行，无法访问系统资源
+2. **超时限制**：脚本执行时间有限制，避免无限循环
 3. **内存限制**：脚本内存使用受限
-4. **网络限制**：只能通过提供的 API 进行网络请求
+4. **网络限制**：只能通过内置 HTTP API 进行网络请求
 
 ## 下一步
 
 - 📖 [提取步骤参考](./steps.md) - 完整步骤说明
 - 📖 [过滤器参考](./filters.md) - 文本处理过滤器
+- 🔐 [登录流程](../flows/login.md) - 登录脚本详细用法

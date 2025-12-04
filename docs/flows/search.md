@@ -9,6 +9,10 @@
 url = "https://example.com/search?q={{ keyword }}&page={{ page }}"
 description = "搜索视频内容"
 
+# 列表选择器（必需）
+[search.list]
+steps = [{ css = { selector = ".video-item", all = true } }]
+
 [search.pagination]
 pagination_type = "page_number"
 start_page = 1
@@ -17,6 +21,24 @@ start_page = 1
 title.steps = [{ css = ".title" }]
 url.steps = [{ css = "a" }, { attr = "href" }]
 ```
+
+## 列表选择器（必需）
+
+`list` 字段定义如何选择搜索结果列表中的每个项目，是 SearchFlow 的必需配置。
+
+```toml
+# HTML 列表
+[search.list]
+steps = [{ css = { selector = ".search-item", all = true } }]
+
+# JSON 列表
+[search.list]
+steps = [{ json = { selector = "$.data.list[*]", all = true } }]
+```
+
+:::important
+`list` 字段必须返回一个数组，后续的 `fields` 中的每个字段规则都会在此数组的每个元素上执行。
+:::
 
 ## URL 模板
 
@@ -111,17 +133,19 @@ page_size = 20
 ### 字段示例
 
 ```toml
+# 列表选择器（必需）
+[search.list]
+steps = [{ css = { selector = ".video-item", all = true } }]
+
 [search.fields]
 # 标题（必需）
 title.steps = [
-    { css = { selector = ".video-item", all = true } },
     { css = ".title" },
     { filter = "trim" }
 ]
 
 # URL（必需）
 url.steps = [
-    { css = { selector = ".video-item", all = true } },
     { css = "a" },
     { attr = "href" },
     { filter = "absolute_url" }
@@ -129,14 +153,12 @@ url.steps = [
 
 # 封面
 cover.steps = [
-    { css = { selector = ".video-item", all = true } },
     { css = "img" },
     { attr = "data-src" },
     { filter = "absolute_url" }
 ]
 cover.fallback = [
     [
-        { css = { selector = ".video-item", all = true } },
         { css = "img" },
         { attr = "src" }
     ]
@@ -144,7 +166,6 @@ cover.fallback = [
 
 # 评分
 score.steps = [
-    { css = { selector = ".video-item", all = true } },
     { css = ".score" },
     { filter = "trim" }
 ]
@@ -152,7 +173,6 @@ score.nullable = true
 
 # 简介
 summary.steps = [
-    { css = { selector = ".video-item", all = true } },
     { css = ".desc" },
     { filter = "trim | strip_html" }
 ]
@@ -160,7 +180,6 @@ summary.nullable = true
 
 # 状态（连载/完结）
 status.steps = [
-    { css = { selector = ".video-item", all = true } },
     { css = ".status" },
     { filter = "trim" }
 ]
@@ -168,7 +187,6 @@ status.nullable = true
 
 # 最新更新
 latest.steps = [
-    { css = { selector = ".video-item", all = true } },
     { css = ".latest" },
     { filter = "trim" }
 ]
@@ -184,47 +202,44 @@ latest.nullable = true
 url = "https://example.com/search?wd={{ keyword }}&page={{ page }}"
 description = "搜索影视内容"
 
+[search.list]
+steps = [{ css = { selector = ".search-item", all = true } }]
+
 [search.pagination]
 pagination_type = "page_number"
 start_page = 1
 
 [search.fields]
 title.steps = [
-    { css = { selector = ".search-item", all = true } },
     { css = ".name a" },
     { filter = "trim" }
 ]
 
 url.steps = [
-    { css = { selector = ".search-item", all = true } },
     { css = ".name a" },
     { attr = "href" },
     { filter = "absolute_url" }
 ]
 
 cover.steps = [
-    { css = { selector = ".search-item", all = true } },
     { css = ".cover img" },
     { attr = "data-original" },
     { filter = "absolute_url" }
 ]
 
 summary.steps = [
-    { css = { selector = ".search-item", all = true } },
     { css = ".intro" },
     { filter = "trim" }
 ]
 summary.nullable = true
 
 category.steps = [
-    { css = { selector = ".search-item", all = true } },
     { css = ".type" },
     { filter = "trim" }
 ]
 category.nullable = true
 
 score.steps = [
-    { css = { selector = ".search-item", all = true } },
     { css = ".score em" },
     { filter = "trim" }
 ]
@@ -238,6 +253,9 @@ score.nullable = true
 url = "https://api.example.com/search?keyword={{ keyword }}&page={{ page }}"
 description = "API 搜索"
 
+[search.list]
+steps = [{ json = { selector = "$.data.list[*]", all = true } }]
+
 [search.pagination]
 pagination_type = "page_number"
 start_page = 1
@@ -245,30 +263,25 @@ page_size = 20
 
 [search.fields]
 title.steps = [
-    { json = { selector = "$.data.list[*]", all = true } },
     { json = "$.title" }
 ]
 
 url.steps = [
-    { json = { selector = "$.data.list[*]", all = true } },
     { json = "$.id" },
     { filter = "template('https://example.com/video/{{ value }}.html')" }
 ]
 
 cover.steps = [
-    { json = { selector = "$.data.list[*]", all = true } },
     { json = "$.cover" },
     { filter = "absolute_url" }
 ]
 
 summary.steps = [
-    { json = { selector = "$.data.list[*]", all = true } },
     { json = "$.description" }
 ]
 summary.nullable = true
 
 score.steps = [
-    { json = { selector = "$.data.list[*]", all = true } },
     { json = "$.score" }
 ]
 score.nullable = true
@@ -280,53 +293,49 @@ score.nullable = true
 [search]
 url = "https://novel.example.com/search?q={{ keyword }}&page={{ page }}"
 
+[search.list]
+steps = [{ css = { selector = ".book-item", all = true } }]
+
 [search.pagination]
 pagination_type = "page_number"
 start_page = 1
 
 [search.fields]
 title.steps = [
-    { css = { selector = ".book-item", all = true } },
     { css = ".book-name" },
     { filter = "trim" }
 ]
 
 url.steps = [
-    { css = { selector = ".book-item", all = true } },
     { css = "a.book-link" },
     { attr = "href" },
     { filter = "absolute_url" }
 ]
 
 cover.steps = [
-    { css = { selector = ".book-item", all = true } },
     { css = ".book-cover img" },
     { attr = "src" },
     { filter = "absolute_url" }
 ]
 
 author.steps = [
-    { css = { selector = ".book-item", all = true } },
     { css = ".book-author" },
     { filter = "trim | replace('作者：', '')" }
 ]
 
 category.steps = [
-    { css = { selector = ".book-item", all = true } },
     { css = ".book-category" },
     { filter = "trim" }
 ]
 category.nullable = true
 
 status.steps = [
-    { css = { selector = ".book-item", all = true } },
     { css = ".book-status" },
     { filter = "trim" }
 ]
 status.nullable = true
 
 latest.steps = [
-    { css = { selector = ".book-item", all = true } },
     { css = ".latest-chapter" },
     { filter = "trim" }
 ]
@@ -340,6 +349,11 @@ latest.nullable = true
   "search": {
     "url": "https://example.com/search?q={{ keyword }}&page={{ page }}",
     "description": "搜索内容",
+    "list": {
+      "steps": [
+        { "css": { "selector": ".item", "all": true } }
+      ]
+    },
     "pagination": {
       "pagination_type": "page_number",
       "start_page": 1
@@ -347,14 +361,12 @@ latest.nullable = true
     "fields": {
       "title": {
         "steps": [
-          { "css": { "selector": ".item", "all": true } },
           { "css": ".title" },
           { "filter": "trim" }
         ]
       },
       "url": {
         "steps": [
-          { "css": { "selector": ".item", "all": true } },
           { "css": "a" },
           { "attr": "href" },
           { "filter": "absolute_url" }
@@ -362,7 +374,6 @@ latest.nullable = true
       },
       "cover": {
         "steps": [
-          { "css": { "selector": ".item", "all": true } },
           { "css": "img" },
           { "attr": "src" }
         ],

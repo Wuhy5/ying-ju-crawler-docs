@@ -2,6 +2,32 @@
 
 过滤器用于对提取的文本进行处理和转换。
 
+## FilterStep 类型
+
+过滤器步骤支持两种形式：
+
+### 管道字符串（推荐）
+
+使用 `|` 连接多个过滤器，简洁易读：
+
+```toml
+steps = [{ css = ".content" }, { filter = "trim | strip_html | lowercase" }]
+```
+
+### 过滤器数组
+
+适用于需要复杂参数的场景：
+
+```toml
+steps = [
+    { css = ".content" },
+    { filter = [
+        { name = "regex_replace", args = ["\\s+", " "] },
+        { name = "trim" }
+    ]}
+]
+```
+
 ## 使用方式
 
 ### 单个过滤器

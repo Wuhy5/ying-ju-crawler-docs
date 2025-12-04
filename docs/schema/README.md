@@ -59,6 +59,7 @@ CrawlerRule
 │   └── description
 ├── search (必需)
 │   ├── url
+│   ├── list (必需)
 │   ├── fields (ItemFields)
 │   └── pagination
 ├── detail (必需)
@@ -74,18 +75,41 @@ CrawlerRule
 │   ├── url
 │   └── fields (ContentFields)
 ├── login (可选)
-│   ├── type
-│   ├── webview
-│   ├── form
-│   └── credential
-├── http (可选)
-│   ├── timeout
-│   ├── headers
-│   ├── user_agent
-│   └── ...
-└── scripting (可选)
-    ├── engine
-    └── modules
+│   ├── type: "script"
+│   │   ├── ui (LoginUIElement[])
+│   │   ├── init_script
+│   │   └── login_script
+│   ├── type: "webview"
+│   │   ├── start_url
+│   │   ├── check_script
+│   │   ├── inject_script
+│   │   ├── finish_script
+│   │   └── timeout_seconds
+│   └── type: "credential"
+│       ├── tip
+│       ├── fields (CredentialField[])
+│       ├── storage (CredentialStorage[])
+│       └── validate_script
+├── challenge (可选)
+│   ├── enabled
+│   ├── detectors
+│   │   ├── cloudflare
+│   │   ├── recaptcha
+│   │   ├── hcaptcha
+│   │   └── custom
+│   ├── handler
+│   │   ├── webview
+│   │   ├── retry
+│   │   ├── cookie
+│   │   ├── external
+│   │   └── script
+│   ├── max_attempts
+│   └── cache_duration
+└── http (可选)
+    ├── timeout
+    ├── headers
+    ├── user_agent
+    └── ...
 ```
 
 ## 主要类型定义

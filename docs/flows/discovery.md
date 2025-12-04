@@ -77,11 +77,11 @@ items = [
 ]
 ```
 
-#### 分类项属性
+#### OptionItem 属性
 
 | 属性 | 必需 | 说明 |
 |------|------|------|
-| `key` | ✅ | 分类唯一标识，用于 URL 模板 |
+| `key` | ✅ | 选项唯一标识，用于 URL 模板 |
 | `label` | ✅ | 显示名称 |
 | `value` | ❌ | 实际请求值，不提供则使用 key |
 
@@ -93,30 +93,51 @@ items = [
 ]
 ```
 
-### 动态分类
+### 动态分类（OptionList）
 
-从网页提取分类列表：
+从网页或 API 动态获取分类列表：
 
 ```toml
+# HTML 数据源
 [discovery.categories]
-type = "dynamic"
 url = "https://example.com/categories"
-selector = ".category-item"
+
+[discovery.categories.list]
+steps = [{ css = { selector = ".category-item", all = true } }]
 
 [discovery.categories.fields]
-key = "a::attr(href)::regex('/type/(\\w+)')"
-label = "a::text"
+key.steps = [{ attr = "data-id" }]
+label.steps = [{ css = ".name" }]
 ```
 
-#### 动态分类配置
+```toml
+# JSON API 数据源
+[discovery.categories]
+url = "https://api.example.com/categories"
+
+[discovery.categories.list]
+steps = [{ json = { selector = "$.data.categories[*]", all = true } }]
+
+[discovery.categories.fields]
+key.steps = [{ json = "$.id" }]
+label.steps = [{ json = "$.name" }]
+```
+
+#### 动态选项配置（DynamicOptionList）
 
 | 属性 | 必需 | 说明 |
 |------|------|------|
-| `url` | ✅ | 分类数据源 URL |
-| `selector` | ✅ | 分类列表选择器 |
-| `fields.key` | ✅ | 分类标识提取规则 |
-| `fields.label` | ✅ | 分类名称提取规则 |
-| `fields.value` | ❌ | 分类值提取规则 |
+| `url` | ✅ | 数据源 URL |
+| `list` | ✅ | 列表提取规则（FieldExtractor） |
+| `fields` | ✅ | 字段提取规则（OptionFields） |
+
+#### OptionFields 属性
+
+| 属性 | 必需 | 说明 |
+|------|------|------|
+| `key` | ✅ | 选项标识提取规则 |
+| `label` | ✅ | 显示名称提取规则 |
+| `value` | ❌ | 请求值提取规则（可选） |
 
 ## 筛选器配置
 
@@ -175,23 +196,43 @@ groups = [
 
 ### 动态筛选器
 
-从网页提取筛选选项：
+从网页提取筛选选项（支持嵌套选项列表）：
 
 ```toml
 [discovery.filters]
-type = "dynamic"
 url = "https://example.com/filters"
-selector = ".filter-group"
+
+[discovery.filters.list]
+steps = [{ css = { selector = ".filter-group", all = true } }]
 
 [discovery.filters.fields]
-name = ".group-title::text"
-key = "::attr(data-key)"
-options_selector = ".filter-option"
+name.steps = [{ css = ".group-title" }]
+key.steps = [{ attr = "data-key" }]
 
-[discovery.filters.fields.option_fields]
-name = "::text"
-value = "::attr(data-value)"
+# 嵌套选项列表 (NestedOptionList)
+[discovery.filters.fields.options]
+list.steps = [{ css = { selector = ".filter-option", all = true } }]
+
+[discovery.filters.fields.options.fields]
+key.steps = [{ attr = "data-value" }]
+name.steps = [{ css = ".option-name" }]
 ```
+
+#### NestedOptionList 结构
+
+用于在筛选组内提取选项列表：
+
+| 属性 | 必需 | 说明 |
+|------|------|------|
+| `list` | ✅ | 选项列表提取规则（FieldExtractor） |
+| `fields` | ✅ | 选项字段提取规则（FilterOptionFields） |
+
+#### FilterOptionFields 属性
+
+| 属性 | 必需 | 说明 |
+|------|------|------|
+| `key` | ✅ | 选项标识/值提取规则 |
+| `name` | ✅ | 选项名称提取规则 |
 
 ## 分页配置
 

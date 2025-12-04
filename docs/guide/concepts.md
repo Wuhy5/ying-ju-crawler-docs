@@ -12,7 +12,7 @@
 ├─────────────────────────────────────────────────────────┤
 │  [http]        HTTP 配置（可选）                        │
 ├─────────────────────────────────────────────────────────┤
-│  [scripting]   脚本配置（可选）                         │
+│  [components]  可重用组件定义（可选）                   │
 ├─────────────────────────────────────────────────────────┤
 │  [search]      搜索流程（必需）                         │
 ├─────────────────────────────────────────────────────────┤
@@ -23,6 +23,8 @@
 │  [content]     内容流程（可选）                         │
 ├─────────────────────────────────────────────────────────┤
 │  [login]       登录流程（可选）                         │
+├─────────────────────────────────────────────────────────┤
+│  [challenge]   人机验证处理（可选）                     │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -51,6 +53,80 @@ encoding = "UTF-8"            # 网站编码（可选，默认 UTF-8）
 | `audio` | 音频 | 音乐、播客、有声书 |
 | `book` | 书籍 | 小说、电子书 |
 | `manga` | 漫画 | 漫画、条漫 |
+
+## 可重用组件 (Component)
+
+组件用于封装可复用的字段提取逻辑，避免重复代码。
+
+### 基本结构
+
+```toml
+[components.parse_video_url]
+description = "解析加密的视频地址"
+inputs = { encrypted_url = "" }
+
+[components.parse_video_url.extractor]
+steps = [
+    { var = "encrypted_url" },
+    { script = "decrypt.parse_m3u8" }
+]
+```
+
+### 组件属性
+
+| 属性 | 必需 | 说明 |
+|------|------|------|
+| `extractor` | ✅ | 组件的提取逻辑（FieldExtractor） |
+| `inputs` | ❌ | 输入参数定义（key: 参数名, value: 默认值） |
+| `description` | ❌ | 组件功能描述 |
+
+### 使用组件
+
+在字段提取中通过 `component` 步骤引用：
+
+```toml
+# 定义组件
+[components.clean_title]
+description = "清理标题"
+[components.clean_title.extractor]
+steps = [{ filter = "trim | strip_html | collapse_whitespace" }]
+
+# 使用组件
+[search.fields]
+title.steps = [
+    { css = ".title" },
+    { component = "clean_title" }
+]
+
+[detail.fields]
+title.steps = [
+    { css = "h1" },
+    { component = "clean_title" }
+]
+```
+
+### 带参数的组件
+
+```toml
+# 定义带参数的组件
+[components.build_url]
+description = "构建完整 URL"
+inputs = { path = "", base = "https://example.com" }
+
+[components.build_url.extractor]
+steps = [
+    { var = "path" },
+    { filter = "template('{{ base }}{{ value }}')" }
+]
+
+# 使用时传参
+[search.fields]
+url.steps = [
+    { css = "a" },
+    { attr = "href" },
+    { component = { name = "build_url", inputs = { base = "https://cdn.example.com" } } }
+]
+```
 
 ## 流程 (Flow)
 
@@ -143,32 +219,76 @@ play_url.steps = [
 处理需要认证的网站，支持三种方式：
 
 ```toml
-# 方式1：WebView 登录
+# 方式1：脚本交互登录
 [login]
-[login.webview]
-url = "https://example.com/login"
+type = "script"
+[[login.ui]]
+type = "text"
+key = "username"
+label = "用户名"
+[[login.ui]]
+type = "password"
+key = "password"
+label = "密码"
+[login.login_script]
+code = '''
+const res = await http.post("/api/login", {
+    username: inputs.username,
+    password: inputs.password
+});
+return { success: res.code === 0 };
+'''
 
-# 方式2：表单登录
+# 方式2：WebView 登录
 [login]
-[login.form]
-url = "https://example.com/api/login"
-method = "POST"
-fields = [
-    { key = "username", label = "用户名" },
-    { key = "password", label = "密码", field_type = "password" }
-]
-[login.form.field_mapping]
-user = "{{ username }}"
-pass = "{{ password }}"
+type = "webview"
+start_url = "https://example.com/login"
+check_script = "return document.querySelector('.user-info') !== null;"
+timeout_seconds = 300
 
 # 方式3：凭证登录
 [login]
-[login.credential]
-credential_type = "cookie"
-fields = [
-    { key = "cookie", label = "Cookie", field_type = "textarea" }
-]
+type = "credential"
+tip = "请输入 Cookie"
+[[login.storage]]
+type = "cookie"
 ```
+
+### 人机验证流程 (ChallengeConfig)
+
+处理反爬验证机制，如 Cloudflare、reCAPTCHA 等。
+
+```toml
+[challenge]
+enabled = true
+max_attempts = 3
+cache_duration = 3600  # 凭证缓存时间（秒）
+
+# 检测器：判断是否触发验证
+[[challenge.detectors]]
+type = "cloudflare"
+
+# 处理器：如何完成验证
+[challenge.handler]
+type = "webview"
+timeout_seconds = 120
+success_check = "return !document.body.innerHTML.includes('Just a moment');"
+```
+
+支持的检测器类型：
+
+- `cloudflare` - Cloudflare 验证
+- `recaptcha` - Google reCAPTCHA
+- `hcaptcha` - hCaptcha
+- `custom` - 自定义检测规则
+
+支持的处理器类型：
+
+- `webview` - 打开浏览器手动验证
+- `retry` - 自动重试（适用于 JS Challenge）
+- `cookie` - Cookie 注入
+- `external` - 第三方打码平台
+- `script` - 自定义脚本处理
 
 ## 字段规则 (FieldRule)
 
@@ -285,4 +405,5 @@ URL 和字符串支持 Tera 模板语法：
 
 - 🔧 [字段提取](./extraction.md) - 掌握数据提取技巧
 - 📋 [搜索流程](../flows/search.md) - 完整的搜索配置
+- 🛡️ [人机验证](../flows/challenge.md) - 处理反爬验证
 - 📖 [提取步骤参考](../reference/steps.md) - 所有步骤详解

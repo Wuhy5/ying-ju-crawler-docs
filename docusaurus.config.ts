@@ -113,7 +113,7 @@ const config: Config = {
             },
             {
               label: '核心概念',
-              to: '/docs/core/concepts',
+              to: '/docs/guide/concepts',
             },
           ],
         },

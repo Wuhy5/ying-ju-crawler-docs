@@ -69,6 +69,11 @@ const sidebars: SidebarsConfig = {
           id: 'flows/login',
           label: '登录流程',
         },
+        {
+          type: 'doc',
+          id: 'flows/challenge',
+          label: '人机验证',
+        },
       ],
     },
     {

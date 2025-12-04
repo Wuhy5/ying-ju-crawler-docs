@@ -69,6 +69,13 @@ const config: Config = {
   themeConfig: {
     // Replace with your project's social card
     image: 'img/docusaurus-social-card.jpg',
+    announcementBar: {
+      id: 'schema_doc_notice',
+      content: '⚠️ 文档内容可能未及时更新，如有疑问请以 <a href="/ying-ju-crawler-docs/docs/schema/">schema.json</a> 为准',
+      backgroundColor: '#fff3cd',
+      textColor: '#856404',
+      isCloseable: true,
+    },
     colorMode: {
       respectPrefersColorScheme: true,
     },

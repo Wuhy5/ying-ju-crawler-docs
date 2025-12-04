@@ -6,7 +6,7 @@
 
 | 文件 | 说明 |
 |------|------|
-| `schema.json` | 完整的 JSON Schema 定义 |
+| [schema.json](schema.json) | 完整的 JSON Schema 定义 |
 
 ## Schema 版本
 

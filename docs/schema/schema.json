@@ -568,6 +568,41 @@
       ],
       "description": "组件引用 (ComponentRef)\n\n在 `ExtractStep` 中用于引用已定义的组件。\n\n# 示例\n\n```toml\n# 简单引用（无参数）\ncover.steps = [{ use_component = \"extract_cover\" }]\n\n# 带参数引用\nvideo_url.steps = [\n    { use_component = { name = \"parse_encrypted_url\", args = { encrypted_url = \"{{ raw_url }}\" } } }\n]\n```"
     },
+    "ConditionStep": {
+      "additionalProperties": false,
+      "description": "条件步骤配置\n\n根据条件选择执行不同的提取逻辑",
+      "properties": {
+        "otherwise": {
+          "description": "条件为假时执行的步骤（可选）",
+          "items": {
+            "$ref": "#/$defs/ExtractStep"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "then": {
+          "description": "条件为真时执行的步骤",
+          "items": {
+            "$ref": "#/$defs/ExtractStep"
+          },
+          "type": "array"
+        },
+        "when": {
+          "description": "条件检测步骤\n\n执行这些步骤，如果结果非空/非 null/非 false，则条件为真",
+          "items": {
+            "$ref": "#/$defs/ExtractStep"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "when",
+        "then"
+      ],
+      "type": "object"
+    },
     "ContentFields": {
       "description": "内容页字段规则 (ContentFields)\n用于播放页、阅读页等内容消费页面\n\n使用 Box 包装以减少枚举大小差异",
       "oneOf": [
@@ -795,6 +830,17 @@
         "fields": {
           "$ref": "#/$defs/ContentFields",
           "description": "内容字段提取规则"
+        },
+        "http": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HttpConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "流程级 HTTP 配置（可选）\n\n覆盖全局 HTTP 配置"
         },
         "url": {
           "$ref": "#/$defs/Template",
@@ -1479,6 +1525,17 @@
           "$ref": "#/$defs/DetailFields",
           "description": "字段提取规则\n根据媒体类型定义不同的字段集合"
         },
+        "http": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HttpConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "流程级 HTTP 配置（可选）\n\n覆盖全局 HTTP 配置"
+        },
         "url": {
           "$ref": "#/$defs/Template",
           "description": "详情页 URL 模板\n约定输入变量: {{ detail_url }}"
@@ -1492,7 +1549,7 @@
     },
     "DiscoveryFlow": {
       "additionalProperties": false,
-      "description": "发现页流程 (DiscoveryFlow)\n用于列表页、分类页、发现页等场景\n\n# 示例\n\n```toml\n[discovery]\nurl = \"https://example.com/category/{{ category }}?page={{ page }}\"\n\n[discovery.pagination]\npagination_type = \"page_number\"\nstart_page = 1\n\n[discovery.fields.title]\nsteps = [{ css = \".title\" }, { filter = \"trim\" }]\n\n[discovery.fields.url]\nsteps = [{ css = \"a\" }, { attr = \"href\" }]\n```",
+      "description": "发现页流程 (DiscoveryFlow)\n用于列表页、分类页、发现页等场景\n\n# 示例\n\n```toml\n[discovery]\nurl = \"https://example.com/category/{{ category }}?page={{ page }}\"\n\n[discovery.pagination]\ntype = \"page_number\"\nstart = 1\n\n[discovery.fields.title]\nsteps = [{ css = \".title\" }, { filter = \"trim\" }]\n\n[discovery.fields.url]\nsteps = [{ css = \"a\" }, { attr = \"href\" }]\n```",
       "properties": {
         "categories": {
           "anyOf": [
@@ -1527,6 +1584,17 @@
           ],
           "description": "筛选器组列表（可选）\n静态数组或动态获取配置"
         },
+        "http": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HttpConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "流程级 HTTP 配置（可选）\n\n覆盖全局 HTTP 配置"
+        },
         "list": {
           "$ref": "#/$defs/FieldExtractor",
           "description": "list 列表提取规则"
@@ -1534,7 +1602,7 @@
         "pagination": {
           "anyOf": [
             {
-              "$ref": "#/$defs/PaginationConfig"
+              "$ref": "#/$defs/Pagination"
             },
             {
               "type": "null"
@@ -1627,7 +1695,7 @@
       "type": "object"
     },
     "ExtractStep": {
-      "description": "提取步骤 (ExtractStep)\n\n单个原子化操作。步骤类型：\n- **选择步骤**：css, json, regex\n- **过滤步骤**：filter, attr, index\n- **特殊步骤**：const, var, script",
+      "description": "提取步骤 (ExtractStep)\n\n单个原子化操作。步骤类型：\n- **选择步骤**：css, json, xpath, regex\n- **过滤步骤**：filter, attr, index\n- **特殊步骤**：const, var, script, use_component\n- **流程控制**：map, condition",
       "oneOf": [
         {
           "additionalProperties": false,
@@ -1652,6 +1720,19 @@
           },
           "required": [
             "json"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "XPath 表达式（XML/HTML）\n\n**注意**：Rust 原生不支持完整 XPath，Runtime 通过 trait 抽象实现：\n- 在 Tauri 环境下通过调用 JS 引擎执行\n- 可注入其他 XPath 实现（如 libxml2 绑定）\n\n# 示例\n\n```toml\ntitle.steps = [{ xpath = \"//div[@class='title']/text()\" }]\nlinks.steps = [{ xpath = { expr = \"//a/@href\", all = true } }]\n```",
+          "properties": {
+            "xpath": {
+              "$ref": "#/$defs/SelectorStep"
+            }
+          },
+          "required": [
+            "xpath"
           ],
           "type": "object"
         },
@@ -1756,6 +1837,35 @@
             "use_component"
           ],
           "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "映射处理（对数组每个元素应用步骤）\n\n输入必须是数组，对每个元素执行内部步骤，返回处理后的数组\n\n# 示例\n\n```toml\n# 提取所有链接并转为绝对路径\nurls.steps = [\n    { css = { expr = \"a\", all = true } },\n    { map = [{ attr = \"href\" }, { filter = \"absolute_url\" }] }\n]\n\n# 从 JSON 数组提取特定字段\ntitles.steps = [\n    { json = \"$.items[*]\" },\n    { map = [{ json = \"$.title\" }, { filter = \"trim\" }] }\n]\n```",
+          "properties": {
+            "map": {
+              "items": {
+                "$ref": "#/$defs/ExtractStep"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "map"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "条件分支\n\n根据条件选择不同的提取逻辑\n\n# 示例\n\n```toml\n# VIP 用户和普通用户使用不同选择器\nplay_url.steps = [{\n    condition = {\n        when = [{ css = \".vip-player\" }],\n        then = [{ css = \".vip-player video\" }, { attr = \"src\" }],\n        otherwise = [{ css = \".normal-player video\" }, { attr = \"src\" }]\n    }\n}]\n```",
+          "properties": {
+            "condition": {
+              "$ref": "#/$defs/ConditionStep"
+            }
+          },
+          "required": [
+            "condition"
+          ],
+          "type": "object"
         }
       ]
     },
@@ -1825,23 +1935,23 @@
     },
     "FilterGroup": {
       "additionalProperties": false,
-      "description": "筛选器组 (FilterGroup)\n代表UI上一组相关的筛选选项，如\"地区\"、\"年份\"。",
+      "description": "筛选器组 (FilterGroup)\n代表UI上一组相关的筛选选项，如\"地区\"、\"年份\"",
       "properties": {
         "key": {
-          "description": "此筛选器组在URL模板中对应的键 (`key`)。",
+          "description": "此筛选器组在URL模板中对应的键 (`key`)",
           "type": "string"
         },
         "multiselect": {
           "default": false,
-          "description": "是否允许多选。",
+          "description": "是否允许多选",
           "type": "boolean"
         },
         "name": {
-          "description": "筛选器组的显示名称，如 \"按类型\"。",
+          "description": "筛选器组的显示名称，如 \"按类型\"",
           "type": "string"
         },
         "options": {
-          "description": "此筛选器组下所有可用的选项。",
+          "description": "此筛选器组下所有可用的选项",
           "items": {
             "$ref": "#/$defs/FilterOption"
           },
@@ -1908,14 +2018,14 @@
     },
     "FilterOption": {
       "additionalProperties": false,
-      "description": "筛选器选项 (FilterOption)\n代表一个具体的筛选选项，如\"电影\"或\"2023年\"。",
+      "description": "筛选器选项 (FilterOption)\n代表一个具体的筛选选项，如\"电影\"或\"2023年\"",
       "properties": {
         "name": {
-          "description": "选项的显示名称，如 \"美国\"。",
+          "description": "选项的显示名称，如 \"美国\"",
           "type": "string"
         },
         "value": {
-          "description": "选项的值，将用于替换URL模板中对应的 `key`。",
+          "description": "选项的值，将用于替换URL模板中对应的 `key`",
           "type": "string"
         }
       },
@@ -1962,10 +2072,10 @@
     },
     "HttpConfig": {
       "additionalProperties": false,
-      "description": "全局HTTP配置 (HttpConfig)\n定义所有网络请求的默认行为。",
+      "description": "HTTP 配置 (HttpConfig)\n\n完整的 HTTP 配置结构，包含连接参数、请求配置和响应配置。\n可用于全局配置或流程级配置，流程级配置会覆盖全局配置。\n\n# 示例\n\n## 全局配置\n```toml\n[http]\nuser_agent = \"Mozilla/5.0 ...\"\ntimeout = 30\n\n[http.request]\nheaders = { \"Accept-Language\" = \"zh-CN,zh;q=0.9\" }\n\n[http.response]\nencoding = \"utf-8\"\n```\n\n## 流程级配置\n```toml\n[search.http]\ntimeout = 10\nrequest.method = \"POST\"\nresponse.encoding = \"gbk\"\n```",
       "properties": {
         "connect_timeout": {
-          "description": "连接超时时间（秒）。",
+          "description": "连接超时时间（秒）",
           "format": "uint32",
           "minimum": 0,
           "type": [
@@ -1974,24 +2084,14 @@
           ]
         },
         "follow_redirects": {
-          "description": "是否允许重定向。",
+          "description": "是否允许重定向",
           "type": [
             "boolean",
             "null"
           ]
         },
-        "headers": {
-          "additionalProperties": {
-            "type": "string"
-          },
-          "description": "全局请求头。",
-          "type": [
-            "object",
-            "null"
-          ]
-        },
         "max_concurrent": {
-          "description": "最大并发请求数。",
+          "description": "最大并发请求数",
           "format": "uint32",
           "minimum": 0,
           "type": [
@@ -2000,7 +2100,7 @@
           ]
         },
         "max_redirects": {
-          "description": "最大重定向次数。",
+          "description": "最大重定向次数",
           "format": "uint32",
           "minimum": 0,
           "type": [
@@ -2009,14 +2109,25 @@
           ]
         },
         "proxy": {
-          "description": "全局代理地址。",
+          "description": "代理地址",
           "type": [
             "string",
             "null"
           ]
         },
+        "request": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RequestConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "默认请求配置"
+        },
         "request_delay": {
-          "description": "请求间隔时间（毫秒），用于限流。",
+          "description": "请求间隔时间（毫秒），用于限流",
           "format": "uint32",
           "minimum": 0,
           "type": [
@@ -2024,8 +2135,19 @@
             "null"
           ]
         },
+        "response": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResponseConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "默认响应配置"
+        },
         "retry_count": {
-          "description": "重试次数。",
+          "description": "重试次数",
           "format": "uint32",
           "minimum": 0,
           "type": [
@@ -2034,7 +2156,7 @@
           ]
         },
         "retry_delay": {
-          "description": "重试间隔（毫秒）。",
+          "description": "重试间隔（毫秒）",
           "format": "uint32",
           "minimum": 0,
           "type": [
@@ -2043,7 +2165,7 @@
           ]
         },
         "timeout": {
-          "description": "全局请求超时时间（秒）。",
+          "description": "请求超时时间（秒）",
           "format": "uint32",
           "minimum": 0,
           "type": [
@@ -2052,14 +2174,14 @@
           ]
         },
         "user_agent": {
-          "description": "全局 User-Agent。",
+          "description": "User-Agent 请求头",
           "type": [
             "string",
             "null"
           ]
         },
         "verify_ssl": {
-          "description": "是否验证SSL证书。",
+          "description": "是否验证 SSL 证书",
           "type": [
             "boolean",
             "null"
@@ -2067,6 +2189,46 @@
         }
       },
       "type": "object"
+    },
+    "HttpMethod": {
+      "description": "HTTP 请求方法 (HttpMethod)\n用于指定网络请求的 HTTP 方法",
+      "oneOf": [
+        {
+          "const": "GET",
+          "description": "GET 请求，通常用于获取数据",
+          "type": "string"
+        },
+        {
+          "const": "POST",
+          "description": "POST 请求，通常用于提交数据",
+          "type": "string"
+        },
+        {
+          "const": "PUT",
+          "description": "PUT 请求，通常用于更新数据",
+          "type": "string"
+        },
+        {
+          "const": "DELETE",
+          "description": "DELETE 请求，通常用于删除数据",
+          "type": "string"
+        },
+        {
+          "const": "HEAD",
+          "description": "HEAD 请求，类似于 GET，但只获取响应头",
+          "type": "string"
+        },
+        {
+          "const": "OPTIONS",
+          "description": "OPTIONS 请求，获取服务器支持的 HTTP 方法",
+          "type": "string"
+        },
+        {
+          "const": "PATCH",
+          "description": "PATCH 请求，用于部分更新数据",
+          "type": "string"
+        }
+      ]
     },
     "IndexStep": {
       "anyOf": [
@@ -2711,65 +2873,172 @@
       ],
       "description": "选项列表\n\n支持静态定义或从数据源动态获取\n\n# 示例\n\n## 静态定义\n```toml\ncategories = [\n  { key = \"movie\", label = \"电影\" },\n  { key = \"tv\", label = \"电视剧\" },\n]\n```\n\n## 动态获取（HTML）\n```toml\n[categories]\nurl = \"https://example.com/categories\"\nlist.steps = [{ css = \".category-item\" }]\n\n[categories.fields]\nkey.steps = [{ attr = \"data-id\" }]\nlabel.steps = [{ css = \".name\" }]\n```\n\n## 动态获取（JSON API）\n```toml\n[categories]\nurl = \"https://api.example.com/categories\"\nlist.steps = [{ json = \"$.data.categories[*]\" }]\n\n[categories.fields]\nkey.steps = [{ json = \"$.id\" }]\nlabel.steps = [{ json = \"$.name\" }]\n```"
     },
-    "PaginationConfig": {
-      "additionalProperties": false,
-      "description": "分页配置",
-      "properties": {
-        "max_pages": {
-          "description": "最大页数限制",
-          "format": "uint32",
-          "minimum": 0,
-          "type": [
-            "integer",
-            "null"
-          ]
-        },
-        "page_param": {
-          "default": "page",
-          "description": "页码参数名",
-          "type": "string"
-        },
-        "page_size": {
-          "description": "每页数量（如果适用）",
-          "format": "uint32",
-          "minimum": 0,
-          "type": [
-            "integer",
-            "null"
-          ]
-        },
-        "pagination_type": {
-          "$ref": "#/$defs/PaginationType",
-          "default": "page_number",
-          "description": "分页类型"
-        },
-        "start_page": {
-          "default": 1,
-          "description": "起始页码",
-          "format": "uint32",
-          "minimum": 0,
-          "type": "integer"
-        }
-      },
-      "type": "object"
-    },
-    "PaginationType": {
-      "description": "分页类型",
+    "Pagination": {
+      "description": "分页配置 (Pagination)\n\n不同分页类型有不同的结构，通过 `type` 字段区分\n\n# 示例\n\n## 页码分页\n```toml\n[pagination]\ntype = \"page_number\"\nstart = 1\nparam = \"page\"\n```\n\n## 偏移量分页\n```toml\n[pagination]\ntype = \"offset\"\nstart = 0\nstep = 20\nparam = \"offset\"\n```\n\n## 游标分页\n```toml\n[pagination]\ntype = \"cursor\"\nparam = \"cursor\"\nnext_cursor.steps = [{ json = \"$.data.next_cursor\" }]\n```",
       "oneOf": [
         {
-          "const": "page_number",
-          "description": "页码分页",
-          "type": "string"
+          "additionalProperties": false,
+          "description": "页码分页（最常见）\n\nURL 示例：`?page=1`, `?page=2`",
+          "properties": {
+            "has_next": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldExtractor"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "是否有下一页的检测规则（可选）\n\n如果不提供，默认当返回结果为空时停止"
+            },
+            "max_pages": {
+              "description": "最大页数限制（可选）",
+              "format": "uint32",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "param": {
+              "default": "page",
+              "description": "页码参数名（默认 \"page\"）",
+              "type": "string"
+            },
+            "start": {
+              "default": 1,
+              "description": "起始页码（默认 1）",
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": {
+              "const": "page_number",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
         },
         {
-          "const": "offset",
-          "description": "偏移量分页",
-          "type": "string"
+          "additionalProperties": false,
+          "description": "偏移量分页\n\nURL 示例：`?offset=0&limit=20`, `?offset=20&limit=20`",
+          "properties": {
+            "limit_param": {
+              "description": "每页数量参数名（可选）\n\n如 \"limit\", \"size\", \"per_page\"",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "max_offset": {
+              "description": "最大偏移量限制（可选）",
+              "format": "uint32",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "param": {
+              "default": "offset",
+              "description": "偏移量参数名（默认 \"offset\"）",
+              "type": "string"
+            },
+            "start": {
+              "default": 0,
+              "description": "起始偏移量（默认 0）",
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "step": {
+              "description": "每次增加的偏移量（即每页数量）",
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "total_count": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldExtractor"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "总数量提取规则（可选）\n\n用于计算总页数"
+            },
+            "type": {
+              "const": "offset",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "step"
+          ],
+          "type": "object"
         },
         {
-          "const": "cursor",
-          "description": "游标分页",
-          "type": "string"
+          "additionalProperties": false,
+          "description": "游标分页\n\nURL 示例：`?cursor=abc123`, `?after=xyz789`",
+          "properties": {
+            "has_next": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldExtractor"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "是否有下一页的检测规则（可选）\n\n如果不提供，默认当 next_cursor 为空时停止"
+            },
+            "max_requests": {
+              "description": "最大请求次数限制（可选）",
+              "format": "uint32",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "next_cursor": {
+              "$ref": "#/$defs/FieldExtractor",
+              "description": "下一页游标提取规则（必需）\n\n从响应中提取下一页的游标值"
+            },
+            "param": {
+              "default": "cursor",
+              "description": "游标参数名（默认 \"cursor\"）",
+              "type": "string"
+            },
+            "type": {
+              "const": "cursor",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "next_cursor"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "无分页（单页）",
+          "properties": {
+            "type": {
+              "const": "none",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
         }
       ]
     },
@@ -2838,6 +3107,177 @@
         }
       ],
       "description": "正则表达式步骤"
+    },
+    "RequestConfig": {
+      "additionalProperties": false,
+      "description": "请求配置 (RequestConfig)\n\n定义 HTTP 请求的参数，可用于流程级别或全局默认配置\n\n# 示例\n\n```toml\n[request]\nmethod = \"POST\"\ncontent_type = \"application/json\"\nbody = '{\"keyword\": \"{{ keyword }}\"}'\nheaders = { \"X-Custom-Header\" = \"value\" }\n```",
+      "properties": {
+        "body": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Template"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "请求体模板（用于 POST 等请求）"
+        },
+        "content_type": {
+          "description": "内容类型（Content-Type），常见值：\n- `application/x-www-form-urlencoded`\n- `application/json`\n- `multipart/form-data`",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "headers": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Template"
+          },
+          "description": "额外的请求头",
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "method": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HttpMethod"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "HTTP 方法，默认为 GET"
+        }
+      },
+      "type": "object"
+    },
+    "ResponseConfig": {
+      "additionalProperties": false,
+      "description": "响应处理配置 (ResponseConfig)\n\n定义如何处理 HTTP 响应，包括编码检测、内容类型识别和预处理\n\n# 示例\n\n## 指定编码\n```toml\n[response]\nencoding = \"gbk\"\n```\n\n## 自动检测 + 预处理\n```toml\n[response]\nencoding = \"auto\"\npreprocess = { inline = \"return decrypt(response.body, 'key');\" }\n```",
+      "properties": {
+        "content_type": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResponseContentType"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "响应内容类型（覆盖自动检测）\n\n某些网站 Content-Type 不准确，需手动指定"
+        },
+        "encoding": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResponseEncoding"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "响应编码\n\n- `auto`: 自动检测（默认）\n- `utf-8`, `gbk`, `gb2312`, `big5`, `shift_jis` 等"
+        },
+        "preprocess": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Script"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "预处理脚本\n\n在解析前对响应体进行处理（解密、解压等）\n输入变量：`response`（包含 body, headers, status）\n返回值：处理后的响应体字符串"
+        }
+      },
+      "type": "object"
+    },
+    "ResponseContentType": {
+      "description": "响应内容类型",
+      "oneOf": [
+        {
+          "const": "html",
+          "description": "HTML 文档",
+          "type": "string"
+        },
+        {
+          "const": "json",
+          "description": "JSON 数据",
+          "type": "string"
+        },
+        {
+          "const": "xml",
+          "description": "XML 数据",
+          "type": "string"
+        },
+        {
+          "const": "text",
+          "description": "纯文本",
+          "type": "string"
+        }
+      ]
+    },
+    "ResponseEncoding": {
+      "description": "响应编码",
+      "oneOf": [
+        {
+          "const": "auto",
+          "description": "自动检测编码",
+          "type": "string"
+        },
+        {
+          "const": "utf-8",
+          "description": "UTF-8 编码",
+          "type": "string"
+        },
+        {
+          "const": "gbk",
+          "description": "GBK 编码（简体中文）",
+          "type": "string"
+        },
+        {
+          "const": "gb2312",
+          "description": "GB2312 编码（简体中文）",
+          "type": "string"
+        },
+        {
+          "const": "gb18030",
+          "description": "GB18030 编码（简体中文，GBK 超集）",
+          "type": "string"
+        },
+        {
+          "const": "big5",
+          "description": "Big5 编码（繁体中文）",
+          "type": "string"
+        },
+        {
+          "const": "shift_jis",
+          "description": "Shift_JIS 编码（日文）",
+          "type": "string"
+        },
+        {
+          "const": "euc-jp",
+          "description": "EUC-JP 编码（日文）",
+          "type": "string"
+        },
+        {
+          "const": "euc-kr",
+          "description": "EUC-KR 编码（韩文）",
+          "type": "string"
+        },
+        {
+          "const": "iso-8859-1",
+          "description": "ISO-8859-1 编码（西欧）",
+          "type": "string"
+        },
+        {
+          "const": "windows-1252",
+          "description": "Windows-1252 编码（西欧）",
+          "type": "string"
+        }
+      ]
     },
     "Script": {
       "anyOf": [
@@ -2945,7 +3385,7 @@
     },
     "SearchFlow": {
       "additionalProperties": false,
-      "description": "搜索流程 (SearchFlow)\n实现搜索功能\n\n# 示例\n\n```toml\n[search]\nurl = \"https://example.com/search?q={{ keyword }}&page={{ page }}\"\n\n[search.pagination]\npagination_type = \"page_number\"\n\n[search.fields]\ntitle.steps = [{ css = \".title\" }]\nurl.steps = [{ css = \"a\" }, { attr = \"href\" }]\n```",
+      "description": "搜索流程 (SearchFlow)\n实现搜索功能\n\n# 示例\n\n## 基本 GET 搜索\n```toml\n[search]\nurl = \"https://example.com/search?q={{ keyword }}&page={{ page }}\"\n\n[search.pagination]\ntype = \"page_number\"\n\n[search.fields]\ntitle.steps = [{ css = \".title\" }]\nurl.steps = [{ css = \"a\" }, { attr = \"href\" }]\n```\n\n## POST 搜索（使用流程级 HTTP 配置）\n```toml\n[search]\nurl = \"https://api.example.com/search\"\n\n[search.http.request]\nmethod = \"POST\"\ncontent_type = \"application/json\"\nbody = '{\"keyword\": \"{{ keyword }}\", \"page\": {{ page }}}'\n\n[search.http.response]\nencoding = \"utf-8\"\n```",
       "properties": {
         "description": {
           "description": "流程的功能描述",
@@ -2958,6 +3398,17 @@
           "$ref": "#/$defs/ItemFields",
           "description": "将列表项映射为最终数据结构的字段提取规则"
         },
+        "http": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HttpConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "流程级 HTTP 配置（可选）\n\n覆盖全局 HTTP 配置，支持设置请求方法、请求头、响应编码等"
+        },
         "list": {
           "$ref": "#/$defs/FieldExtractor",
           "description": "list 列表提取规则"
@@ -2965,7 +3416,7 @@
         "pagination": {
           "anyOf": [
             {
-              "$ref": "#/$defs/PaginationConfig"
+              "$ref": "#/$defs/Pagination"
             },
             {
               "type": "null"
@@ -2999,18 +3450,18 @@
               "description": "是否选择所有匹配（默认 false）",
               "type": "boolean"
             },
-            "selector": {
+            "expr": {
               "description": "选择器表达式",
               "type": "string"
             }
           },
           "required": [
-            "selector"
+            "expr"
           ],
           "type": "object"
         }
       ],
-      "description": "选择器步骤（CSS/JSONPath/XPath 通用）"
+      "description": "选择器步骤（CSS/JSONPath通用）"
     },
     "Template": {
       "description": "模板字符串 (Template)\n\n支持 Tera 模板语法的字符串类型，用于在运行时进行变量插值。\n\n## 语法规范\n- 变量插值: `{{ variable }}`\n- 嵌套访问: `{{ user.name }}`, `{{ items[0] }}`\n- 过滤器: `{{ name | upper }}`\n- 条件: `{% if condition %}...{% endif %}`\n- 循环: `{% for item in items %}...{% endfor %}`\n\n## 示例\n```text\nhttps://example.com/search?q={{ keyword }}\nHello, {{ user.name }}!\n{{ items[0].title }}\n```",

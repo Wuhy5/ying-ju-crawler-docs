@@ -509,6 +509,35 @@
       ],
       "type": "object"
     },
+    "Component": {
+      "additionalProperties": false,
+      "description": "可重用组件 (Component)\n封装可复用的字段提取逻辑\n\n# 示例\n\n```toml\n[components.parse_video_url]\ndescription = \"解析加密的视频地址\"\ninputs = { encrypted_url = \"\" }\n\n[components.parse_video_url.extractor]\nsteps = [{ script = \"decrypt.parse_m3u8\" }]\n```",
+      "properties": {
+        "description": {
+          "description": "组件的功能描述",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "extractor": {
+          "$ref": "#/$defs/FieldExtractor",
+          "description": "组件的提取逻辑"
+        },
+        "inputs": {
+          "additionalProperties": true,
+          "description": "定义组件接收的输入参数 (key: 参数名, value: 默认值)",
+          "type": [
+            "object",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "extractor"
+      ],
+      "type": "object"
+    },
     "ContentFields": {
       "description": "内容页字段规则 (ContentFields)\n用于播放页、阅读页等内容消费页面\n\n使用 Box 包装以减少枚举大小差异",
       "oneOf": [
@@ -2995,6 +3024,17 @@
         }
       ],
       "description": "人机验证/反爬挑战处理配置"
+    },
+    "components": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Component"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "可重用组件定义"
     },
     "content": {
       "anyOf": [

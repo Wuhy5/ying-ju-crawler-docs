@@ -509,9 +509,9 @@
       ],
       "type": "object"
     },
-    "Component": {
+    "ComponentDefinition": {
       "additionalProperties": false,
-      "description": "可重用组件 (Component)\n封装可复用的字段提取逻辑\n\n# 示例\n\n```toml\n[components.parse_video_url]\ndescription = \"解析加密的视频地址\"\ninputs = { encrypted_url = \"\" }\n\n[components.parse_video_url.extractor]\nsteps = [{ script = \"decrypt.parse_m3u8\" }]\n```",
+      "description": "组件定义 (ComponentDefinition)\n\n封装可复用的字段提取逻辑。\n\n# 字段说明\n\n- `description`: 组件功能描述，便于维护\n- `inputs`: 组件接收的输入参数及其默认值\n- `extractor`: 组件的提取逻辑",
       "properties": {
         "description": {
           "description": "组件的功能描述",
@@ -526,7 +526,7 @@
         },
         "inputs": {
           "additionalProperties": true,
-          "description": "定义组件接收的输入参数 (key: 参数名, value: 默认值)",
+          "description": "定义组件接收的输入参数 (key: 参数名, value: 默认值)\n\n引用组件时，可通过 `args` 覆盖这些参数",
           "type": [
             "object",
             "null"
@@ -537,6 +537,36 @@
         "extractor"
       ],
       "type": "object"
+    },
+    "ComponentRef": {
+      "anyOf": [
+        {
+          "description": "简单引用：仅组件名称",
+          "type": "string"
+        },
+        {
+          "description": "带参数引用",
+          "properties": {
+            "args": {
+              "additionalProperties": true,
+              "description": "传递给组件的参数，会覆盖组件的默认输入",
+              "type": [
+                "object",
+                "null"
+              ]
+            },
+            "name": {
+              "description": "组件名称",
+              "type": "string"
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "type": "object"
+        }
+      ],
+      "description": "组件引用 (ComponentRef)\n\n在 `ExtractStep` 中用于引用已定义的组件。\n\n# 示例\n\n```toml\n# 简单引用（无参数）\ncover.steps = [{ use_component = \"extract_cover\" }]\n\n# 带参数引用\nvideo_url.steps = [\n    { use_component = { name = \"parse_encrypted_url\", args = { encrypted_url = \"{{ raw_url }}\" } } }\n]\n```"
     },
     "ContentFields": {
       "description": "内容页字段规则 (ContentFields)\n用于播放页、阅读页等内容消费页面\n\n使用 Box 包装以减少枚举大小差异",
@@ -1711,6 +1741,19 @@
           },
           "required": [
             "script"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "组件引用\n\n引用在 `components` 中定义的可复用组件\n\n# 示例\n\n```toml\n# 简单引用\ncover.steps = [{ use_component = \"extract_cover\" }]\n\n# 带参数引用\nvideo_url.steps = [{ use_component = { name = \"decrypt_url\", args = { key = \"xxx\" } } }]\n```",
+          "properties": {
+            "use_component": {
+              "$ref": "#/$defs/ComponentRef"
+            }
+          },
+          "required": [
+            "use_component"
           ],
           "type": "object"
         }
@@ -3026,15 +3069,14 @@
       "description": "人机验证/反爬挑战处理配置"
     },
     "components": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/Component"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "description": "可重用组件定义"
+      "additionalProperties": {
+        "$ref": "#/$defs/ComponentDefinition"
+      },
+      "description": "可重用组件定义\n\n以名称为键定义可复用的提取逻辑，可在各流程中通过 `use_component` 步骤引用",
+      "type": [
+        "object",
+        "null"
+      ]
     },
     "content": {
       "anyOf": [

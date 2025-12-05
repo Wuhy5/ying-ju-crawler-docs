@@ -829,7 +829,7 @@
     },
     "ContentFlow": {
       "additionalProperties": false,
-      "description": "内容页流程 (ContentFlow)\n用于播放页、阅读页等内容消费页面\n\n例如：\n- 视频：解析真实播放地址\n- 书籍：获取章节正文内容\n- 漫画：获取章节图片列表\n- 音频：获取音频播放地址\n\n# 示例\n\n```toml\n[content]\nurl = \"{{ play_url }}\"\n\n[content.fields]\nmedia_type = \"video\"\nplay_url.steps = [{ css = \"#player\" }, { attr = \"src\" }, { filter = \"absolute_url\" }]\n```",
+      "description": "内容页流程 (ContentFlow)\n\n用于播放页、阅读页等内容消费页面。\n\n例如：\n- 视频：解析真实播放地址\n- 书籍：获取章节正文内容\n- 漫画：获取章节图片列表\n- 音频：获取音频播放地址\n\n# 可用变量\n\n## Flow 变量（自动注入）\n\n| 变量 | 类型 | 说明 |\n|------|------|------|\n| `url` | String | 内容页 URL（章节URL/播放URL） |\n\n## Runtime 全局变量（通过 `$` 前缀访问）\n\n| 变量 | 说明 |\n|------|------|\n| `$.base_url` | 目标网站基础 URL |\n| `$.domain` | 目标网站域名 |\n\n# 示例\n\n```toml\n[content]\nurl = \"{{ url }}\"\n\n[content.fields]\nmedia_type = \"video\"\nplay_url.steps = [{ css = \"#player\" }, { attr = \"src\" }, { filter = \"absolute_url\" }]\n```",
       "properties": {
         "description": {
           "description": "流程的功能描述",
@@ -855,7 +855,7 @@
         },
         "url": {
           "$ref": "#/$defs/Template",
-          "description": "内容页 URL 模板\n约定输入变量: {{ play_url }} 或 {{ chapter_url }}"
+          "description": "内容页 URL 模板\n\n可用变量：`url`（内容页URL）、`$.base_url`（全局基础URL）"
         }
       },
       "required": [
@@ -1523,7 +1523,7 @@
     },
     "DetailFlow": {
       "additionalProperties": false,
-      "description": "详情页流程 (DetailFlow)\n处理单个内容项的详细信息\n\n# 示例\n\n```toml\n[detail]\nurl = \"{{ detail_url }}\"\n\n[detail.fields]\nmedia_type = \"video\"\ntitle.steps = [{ css = \".title\" }, { filter = \"trim\" }]\ncover.steps = [{ css = \".poster img\" }, { attr = \"src\" }, { filter = \"absolute_url\" }]\n```",
+      "description": "详情页流程 (DetailFlow)\n\n处理单个内容项的详细信息页面。\n\n# 可用变量\n\n## Flow 变量（自动注入）\n\n| 变量 | 类型 | 说明 |\n|------|------|------|\n| `url` | String | 详情页 URL（从搜索/发现结果传入） |\n\n## Runtime 全局变量（通过 `$` 前缀访问）\n\n| 变量 | 说明 |\n|------|------|\n| `$.base_url` | 目标网站基础 URL |\n| `$.domain` | 目标网站域名 |\n\n# 示例\n\n```toml\n[detail]\n# 直接使用传入的 URL\nurl = \"{{ url }}\"\n\n# 或拼接基础 URL\n# url = \"{{ $.base_url }}{{ url }}\"\n\n[detail.fields]\nmedia_type = \"video\"\ntitle.steps = [{ css = \".title\" }, { filter = \"trim\" }]\ncover.steps = [{ css = \".poster img\" }, { attr = \"src\" }, { filter = \"absolute_url\" }]\n```",
       "properties": {
         "description": {
           "description": "流程的功能描述",
@@ -1549,7 +1549,7 @@
         },
         "url": {
           "$ref": "#/$defs/Template",
-          "description": "详情页 URL 模板\n约定输入变量: {{ detail_url }}"
+          "description": "详情页 URL 模板\n\n可用变量：`url`（详情页URL）、`$.base_url`（全局基础URL）"
         }
       },
       "required": [
@@ -1560,7 +1560,7 @@
     },
     "DiscoveryFlow": {
       "additionalProperties": false,
-      "description": "发现页流程 (DiscoveryFlow)\n用于列表页、分类页、发现页等场景\n\n# 示例\n\n```toml\n[discovery]\nurl = \"https://example.com/category/{{ category }}?page={{ page }}\"\n\n[discovery.pagination]\ntype = \"page_number\"\nstart = 1\n\n[discovery.fields.title]\nsteps = [{ css = \".title\" }, { filter = \"trim\" }]\n\n[discovery.fields.url]\nsteps = [{ css = \"a\" }, { attr = \"href\" }]\n```",
+      "description": "发现页流程 (DiscoveryFlow)\n\n用于列表页、分类页、发现页等场景，支持筛选和分页。\n\n# 可用变量\n\n## Flow 变量（自动注入）\n\n| 变量 | 类型 | 说明 |\n|------|------|------|\n| `page` | u32 | 当前页码 |\n| `{filter_key}` | String | 各筛选器的 key 对应的选中值 |\n\n筛选器变量名由 `filters[].key` 定义，例如：\n- 定义 `key = \"category\"` → 可用 `{{ category }}`\n- 定义 `key = \"year\"` → 可用 `{{ year }}`\n\n## Runtime 全局变量（通过 `$` 前缀访问）\n\n| 变量 | 说明 |\n|------|------|\n| `$.base_url` | 目标网站基础 URL |\n| `$.domain` | 目标网站域名 |\n\n# 示例\n\n```toml\n[discovery]\nurl = \"{{ $.base_url }}/list?category={{ category }}&year={{ year }}&page={{ page }}\"\n\n[discovery.pagination]\ntype = \"page_number\"\nstart = 1\n\n[[discovery.filters]]\nname = \"分类\"\nkey = \"category\"\noptions = [\n    { name = \"全部\", value = \"\" },\n    { name = \"电影\", value = \"movie\" },\n]\n\n[[discovery.filters]]\nname = \"年份\"\nkey = \"year\"\noptions = [\n    { name = \"全部\", value = \"\" },\n    { name = \"2024\", value = \"2024\" },\n]\n\n[discovery.fields.title]\nsteps = [{ css = \".title\" }, { filter = \"trim\" }]\n\n[discovery.fields.url]\nsteps = [{ css = \"a\" }, { attr = \"href\" }]\n```",
       "properties": {
         "categories": {
           "anyOf": [
@@ -1623,7 +1623,7 @@
         },
         "url": {
           "$ref": "#/$defs/Template",
-          "description": "数据源 URL 模板\n支持变量: {{ category }}, {{ page }}, 自定义筛选器变量"
+          "description": "数据源 URL 模板\n\n可用变量：`page`（页码）、筛选器 `key` 值、`$.base_url`（全局基础URL）"
         }
       },
       "required": [
@@ -1801,25 +1801,14 @@
         },
         {
           "additionalProperties": false,
-          "description": "常量值",
+          "description": "保存当前值到指定上下文",
           "properties": {
-            "const": true
-          },
-          "required": [
-            "const"
-          ],
-          "type": "object"
-        },
-        {
-          "additionalProperties": false,
-          "description": "上下文变量",
-          "properties": {
-            "var": {
-              "type": "string"
+            "set_var": {
+              "$ref": "#/$defs/SetVarStep"
             }
           },
           "required": [
-            "var"
+            "set_var"
           ],
           "type": "object"
         },
@@ -3431,7 +3420,7 @@
     },
     "SearchFlow": {
       "additionalProperties": false,
-      "description": "搜索流程 (SearchFlow)\n实现搜索功能\n\n# 示例\n\n## 基本 GET 搜索\n```toml\n[search]\nurl = \"https://example.com/search?q={{ keyword }}&page={{ page }}\"\n\n[search.pagination]\ntype = \"page_number\"\n\n[search.fields]\ntitle.steps = [{ css = \".title\" }]\nurl.steps = [{ css = \"a\" }, { attr = \"href\" }]\n```\n\n## POST 搜索（使用流程级 HTTP 配置）\n```toml\n[search]\nurl = \"https://api.example.com/search\"\n\n[search.http.request]\nmethod = \"POST\"\ncontent_type = \"application/json\"\nbody = '{\"keyword\": \"{{ keyword }}\", \"page\": {{ page }}}'\n\n[search.http.response]\nencoding = \"utf-8\"\n```",
+      "description": "搜索流程 (SearchFlow)\n\n实现搜索功能，支持关键词搜索和分页。\n\n# 可用变量\n\n## Flow 变量（自动注入）\n\n| 变量 | 类型 | 说明 |\n|------|------|------|\n| `keyword` | String | 搜索关键词 |\n| `page` | u32 | 当前页码 |\n\n## Runtime 全局变量（通过 `$` 前缀访问）\n\n| 变量 | 说明 |\n|------|------|\n| `$.base_url` | 目标网站基础 URL |\n| `$.domain` | 目标网站域名 |\n\n# 示例\n\n## 基本 GET 搜索\n\n```toml\n[search]\nurl = \"{{ $.base_url }}/search?q={{ keyword }}&page={{ page }}\"\n\n[search.pagination]\ntype = \"page_number\"\n\n[search.fields]\ntitle.steps = [{ css = \".title\" }]\nurl.steps = [{ css = \"a\" }, { attr = \"href\" }]\n```\n\n## POST 搜索（使用流程级 HTTP 配置）\n\n```toml\n[search]\nurl = \"{{ $.base_url }}/api/search\"\n\n[search.http.request]\nmethod = \"POST\"\ncontent_type = \"application/json\"\nbody = '{\"keyword\": \"{{ keyword }}\", \"page\": {{ page }}}'\n\n[search.http.response]\nencoding = \"utf-8\"\n```",
       "properties": {
         "description": {
           "description": "流程的功能描述",
@@ -3472,7 +3461,7 @@
         },
         "url": {
           "$ref": "#/$defs/Template",
-          "description": "搜索 URL 模板\n约定输入变量: {{ keyword }}, {{ page }}"
+          "description": "搜索 URL 模板\n\n可用变量：`keyword`（搜索词）、`page`（页码）、`$.base_url`（全局基础URL）"
         }
       },
       "required": [
@@ -3509,8 +3498,27 @@
       ],
       "description": "选择器步骤（CSS/JSONPath通用）"
     },
+    "SetVarStep": {
+      "additionalProperties": false,
+      "description": "保存当前值到指定上下文",
+      "properties": {
+        "context": {
+          "$ref": "#/$defs/VarContext",
+          "default": "flow",
+          "description": "上下文类型\n- `flow` - 流程级变量\n- `runtime` - 实例级全局变量"
+        },
+        "name": {
+          "description": "变量名",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
     "Template": {
-      "description": "模板字符串 (Template)\n\n支持 Tera 模板语法的字符串类型，用于在运行时进行变量插值。\n\n## 语法规范\n- 变量插值: `{{ variable }}`\n- 嵌套访问: `{{ user.name }}`, `{{ items[0] }}`\n- 过滤器: `{{ name | upper }}`\n- 条件: `{% if condition %}...{% endif %}`\n- 循环: `{% for item in items %}...{% endfor %}`\n\n## 示例\n```text\nhttps://example.com/search?q={{ keyword }}\nHello, {{ user.name }}!\n{{ items[0].title }}\n```",
+      "description": "模板字符串 (Template)\n\n支持 Tera 模板语法的字符串类型，用于在运行时进行变量插值。\n\n# 变量作用域\n\n模板支持两层变量作用域：\n\n- **流程变量 (Flow)**：每次流程调用时注入的临时变量，如 `keyword`、`page`、`url`\n- **全局变量 (Runtime)**：爬虫实例级的只读配置，如 `base_url`、`domain`\n\n## 变量查找规则\n\n| 写法 | 查找逻辑 | 示例 |\n|------|---------|------|\n| `{{ var }}` | 先查 Flow，再查 Runtime | `{{ keyword }}`、`{{ page }}` |\n| `{{ $.var }}` | 仅查 Runtime 全局变量 | `{{ $.base_url }}`、`{{ $.domain }}` |\n\n**注意**：Flow 变量优先级高于 Runtime，同名时 Flow 变量会覆盖 Runtime 变量。\n使用 `$` 前缀可以强制访问 Runtime 全局变量。\n\n## 各流程可用的 Flow 变量\n\n| 流程 | 自动注入变量 |\n|------|------------|\n| search | `keyword`、`page` |\n| discovery | `page`、各筛选器的 `key` |\n| detail | `url`（即 detail_url） |\n| content | `url`（即 chapter_url 或 play_url） |\n\n## Runtime 全局变量\n\n以下变量在所有流程中通过 `$` 前缀访问：\n\n- `$.base_url` - 目标网站的基础 URL\n- `$.domain` - 目标网站的域名\n\n# 语法规范\n\n- 变量插值: `{{ variable }}`\n- 嵌套访问: `{{ user.name }}`、`{{ items[0] }}`\n- 全局访问: `{{ $.base_url }}`\n- 过滤器: `{{ name | upper }}`\n- 条件: `{% if condition %}...{% endif %}`\n- 循环: `{% for item in items %}...{% endfor %}`\n\n# 示例\n\n```toml\n# 搜索 URL - 使用 Flow 变量\nurl = \"{{ $.base_url }}/search?q={{ keyword }}&page={{ page }}\"\n\n# 详情 URL - 直接使用传入的 url\nurl = \"{{ url }}\"\n\n# 混合使用 - 强制使用全局 base_url\nurl = \"{{ $.base_url }}{{ url }}\"\n```",
       "pattern": "{{\\s*([a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*|\\[[0-9]+\\])*)\\s*}}",
       "type": "string"
     },
@@ -3548,6 +3556,21 @@
         "url"
       ],
       "type": "object"
+    },
+    "VarContext": {
+      "description": "变量上下文类型",
+      "oneOf": [
+        {
+          "const": "flow",
+          "description": "流程级变量",
+          "type": "string"
+        },
+        {
+          "const": "runtime",
+          "description": "实例级全局变量",
+          "type": "string"
+        }
+      ]
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",

@@ -3302,20 +3302,7 @@
       ]
     },
     "Script": {
-      "anyOf": [
-        {
-          "description": "简单代码字符串\n直接作为脚本代码执行（使用默认引擎）",
-          "type": "string"
-        },
-        {
-          "$ref": "#/$defs/ScriptConfig",
-          "description": "完整配置"
-        }
-      ],
-      "description": "脚本调用配置\n\n自包含的脚本定义，支持多种形式：\n\n# 示例\n\n## 最简形式：直接写代码字符串\n```toml\nscript = \"return input.trim().toUpperCase()\"\n```\n\n## 内联代码（显式指定引擎）\n```toml\n[script]\ncode = '''\nlet result = input.split(\",\");\nreturn result.map(s => s.trim());\n'''\nengine = \"javascript\"\n```\n\n## 引用外部文件\n```toml\nscript = { file = \"./scripts/login.js\" }\n```\n\n## 远程脚本\n```toml\nscript = { url = \"https://example.com/scripts/utils.js\", function = \"processData\" }\n```\n\n## 带参数调用\n```toml\n[script]\ncode = \"return input.replace(params.from, params.to)\"\nparams = { from = \"old\", to = \"new\" }\n```"
-    },
-    "ScriptConfig": {
-      "description": "脚本完整配置",
+      "description": "脚本调用配置\n\n统一的脚本定义结构，必须使用此类型（不再支持简单字符串）。\n支持多种脚本来源和完整的配置选项。\n\n# 示例\n\n## 最简形式：内联代码\n```toml\n[script]\ncode = \"return input.trim().toUpperCase()\"\n```\n\n## 指定引擎的内联代码\n```toml\n[script]\ncode = '''\nlet result = input.split(\",\");\nreturn result.map(s => s.trim());\n'''\nengine = \"javascript\"\n```\n\n## 引用外部文件\n```toml\n[script]\nfile = \"./scripts/login.js\"\nfunction = \"handleLogin\"\n```\n\n## 远程脚本\n```toml\n[script]\nurl = \"https://example.com/scripts/utils.js\"\nfunction = \"processData\"\n```\n\n## 带参数和安全配置\n```toml\n[script]\ncode = \"return input.replace(params.from, params.to)\"\n[script.params]\nfrom = \"old\"\nto = \"new\"\n[script.security]\ntimeout_seconds = 60\n```",
       "oneOf": [
         {
           "description": "内联代码",
@@ -3326,18 +3313,6 @@
           },
           "required": [
             "code"
-          ],
-          "type": "object"
-        },
-        {
-          "description": "本地文件路径（相对于规则文件）",
-          "properties": {
-            "file": {
-              "type": "string"
-            }
-          },
-          "required": [
-            "file"
           ],
           "type": "object"
         },
@@ -3367,7 +3342,7 @@
           "description": "脚本引擎（可选，默认 JavaScript）"
         },
         "function": {
-          "description": "要调用的函数名（可选）\n如果脚本定义了多个函数，指定要调用的函数\n默认调用 `main` 或直接执行脚本",
+          "description": "要调用的函数名（可选）\n\n如果脚本定义了多个函数，指定要调用的函数。\n默认调用 `main` 或直接执行脚本。",
           "type": [
             "string",
             "null"
@@ -3375,11 +3350,22 @@
         },
         "params": {
           "additionalProperties": true,
-          "description": "传递给脚本的参数（可选）",
+          "description": "传递给脚本的参数（可选）\n\n脚本可通过 `params` 对象访问这些参数。",
           "type": [
             "object",
             "null"
           ]
+        },
+        "security": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ScriptSecurityConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "脚本安全配置（可选）\n\n覆盖全局的 CrawlerRule 级别安全配置。\n如果同时定义了全局和局部配置，局部配置优先。"
         }
       },
       "type": "object",
@@ -3390,7 +3376,7 @@
       "oneOf": [
         {
           "const": "javascript",
-          "description": "JavaScript 脚本引擎（默认，使用 Boa）",
+          "description": "JavaScript 脚本引擎",
           "type": "string"
         },
         {
@@ -3402,8 +3388,46 @@
           "const": "lua",
           "description": "Lua 脚本引擎",
           "type": "string"
+        },
+        {
+          "const": "python",
+          "description": "Python 脚本引擎",
+          "type": "string"
         }
       ]
+    },
+    "ScriptSecurityConfig": {
+      "additionalProperties": false,
+      "description": "脚本执行安全配置\n\n定义脚本执行时的安全限制（内存、文件访问、网络访问、超时）。\n可在全局 (CrawlerRule) 或局部 (Script) 定义，局部配置优先级更高。\n\n# 示例\n\n## 全局配置（CrawlerRule 顶级）\n```toml\n[script_security]\nmax_memory_mb = 128\nallow_file_access = false\nallow_network = false\ntimeout_seconds = 30\n```\n\n## 局部覆盖配置（Script 中）\n```toml\n[script]\ncode = \"...\"\n[script.security]\ntimeout_seconds = 60  # 覆盖全局的 30 秒\n```",
+      "properties": {
+        "allow_file_access": {
+          "description": "是否允许文件系统访问\n\n- `true`: 允许脚本调用文件 I/O 函数（如 `fs.read`）\n- `false`: 禁用所有文件 I/O 操作\n- 默认值：false",
+          "type": "boolean"
+        },
+        "allow_network": {
+          "description": "是否允许网络访问\n\n- `true`: 允许脚本发起网络请求\n- `false`: 禁用所有网络操作\n- 默认值：false\n\n**注意**：即使禁用，脚本也可通过内置的 `http` 函数进行受控网络访问。",
+          "type": "boolean"
+        },
+        "max_memory_mb": {
+          "description": "最大内存限制（MB）\n\n脚本执行过程中允许分配的最大内存。超过此限制时中断脚本。\n默认值：128 MB",
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "timeout_seconds": {
+          "description": "脚本执行超时时间（秒）\n\n脚本执行超过此时间时强制中断。`0` 表示无限制（不推荐）。\n默认值：30 秒",
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
     },
     "SearchFlow": {
       "additionalProperties": false,
@@ -3602,6 +3626,17 @@
     "meta": {
       "$ref": "#/$defs/Meta",
       "description": "规则的元数据，用于在软件中识别和展示。"
+    },
+    "script_security": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ScriptSecurityConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "全局脚本执行安全配置\n\n定义脚本执行的默认安全限制（内存、文件访问、网络、超时）。\n可被 Script 中的局部 `security` 配置覆盖。"
     },
     "search": {
       "$ref": "#/$defs/SearchFlow",

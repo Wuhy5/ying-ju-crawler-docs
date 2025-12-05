@@ -733,7 +733,7 @@
               "const": "book",
               "type": "string"
             },
-            "next_page_url": {
+            "next_url": {
               "anyOf": [
                 {
                   "$ref": "#/$defs/FieldRule"
@@ -743,6 +743,17 @@
                 }
               ],
               "description": "下一页 URL（用于分页章节）"
+            },
+            "prev_url": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FieldRule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "上一页 URL（用于分页章节）"
             },
             "title": {
               "anyOf": [
@@ -1284,7 +1295,7 @@
                   "type": "null"
                 }
               ],
-              "description": "章节列表提取规则"
+              "description": "章节列表提取规则（别名：chapter_list）"
             },
             "cover": {
               "anyOf": [
@@ -1317,7 +1328,7 @@
                   "type": "null"
                 }
               ],
-              "description": "最新章节名"
+              "description": "最新章节名（别名：latest_chapter）"
             },
             "media_type": {
               "const": "book",
@@ -2762,6 +2773,17 @@
         "name": {
           "description": "规则名称，如“示例影视站”。",
           "type": "string"
+        },
+        "script_engine": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ScriptEngine"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "默认脚本引擎（可选，默认 JavaScript）"
         },
         "spec_version": {
           "description": "本规则遵循的规范版本号。",
